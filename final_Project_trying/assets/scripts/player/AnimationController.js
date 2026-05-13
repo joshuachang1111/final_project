@@ -72,7 +72,7 @@ const AnimationController = cc.Class({
         if (!this._player || !this._texture) return;
 
         const isMoving = this._player.movementState === 'moving';
-        const row      = DIR_TO_ROW[this._player.facing.name] ?? 0;
+        const row      = DIR_TO_ROW[this._player.facing && this._player.facing.name] ?? 0;
 
         if (isMoving) {
             this._frameTime += dt;

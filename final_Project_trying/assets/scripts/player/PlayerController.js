@@ -111,6 +111,12 @@ const PlayerController = cc.Class({
     // ─────────────────────────────────────────────
 
     update() {
+        // 多人模式：只有本地玩家才接受鍵盤輸入
+        if (window._nmRole) {
+            const localId = window._nmRole === 'host' ? 1 : 2;
+            if (this.playerId !== localId) return;
+        }
+
         // tween 執行中，不接受任何輸入
         if (this._movementState === MovementState.MOVING) return;
 
@@ -226,6 +232,25 @@ const PlayerController = cc.Class({
         });
 
         return item;
+    },
+
+    // ─────────────────────────────────────────────
+    //  網路同步（遠端玩家）
+    // ─────────────────────────────────────────────
+
+    applyNetworkState(col, row, facingName) {
+        this._col = col;
+        this._row = row;
+        for (const key in Direction) {
+            if (Direction[key].name === facingName) {
+                this._facing = Direction[key];
+                break;
+            }
+        }
+        const pos = GridSystem.toWorld(col, row);
+        cc.tween(this.node)
+            .to(0.1, { x: pos.x, y: pos.y })
+            .start();
     },
 
     // ─────────────────────────────────────────────
