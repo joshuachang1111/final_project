@@ -5,7 +5,6 @@ cc.Class({
     extends: cc.Component,
 
     onLoad() {
-        // 用 cc.isValid 確認舊的 instance 是否還存活
         if (window._nm && cc.isValid(window._nm.node)) {
             this.node.destroy();
             return;
@@ -13,11 +12,13 @@ cc.Class({
         window._nm = this;
         window._nmRole = null;
         window._nmRoomCode = null;
-        window._nmReady = false;   // 連上 Master Server 才變 true
+        window._nmReady = false;
         cc.game.addPersistRootNode(this.node);
 
+        // Bug 2 fix: _callbacks stores arrays so multiple listeners can coexist
         this._callbacks = {};
-        this._pendingAction = null; // 連線前的待執行動作
+        this._pendingAction = null;
+        this._gameStarted = false;   // Bug 1 fix: unified flag, set by BOTH trigger paths
         this._initPhoton();
     },
 
@@ -36,9 +37,6 @@ cc.Class({
 
         this._client.onStateChange = (state) => {
             const State = Photon.LoadBalancing.LoadBalancingClient.State;
-            const name = Photon.LoadBalancing.LoadBalancingClient.StateToName(state);
-            cc.log('Photon state:', name);
-            // ConnectedToMasterServer 或 JoinedLobby 都代表可以建/加入房間
             if (state === State.ConnectedToMasterServer || state === State.JoinedLobby) {
                 cc.log('Photon: 連上 Master Server，準備好了');
                 window._nmReady = true;
@@ -58,7 +56,8 @@ cc.Class({
                 this._emit('room_created', { code: room.name });
             } else {
                 window._nmRole = 'guest';
-                // Guest 主動通知 Host 開始遊戲
+                // Bug 1 fix: mark started on guest side too
+                this._gameStarted = true;
                 this._client.raiseEvent(1, { action: 'guest_joined' });
                 this._emit('start_game', { role: 'guest' });
             }
@@ -67,8 +66,12 @@ cc.Class({
         this._client.onEvent = (code, data, actorNr) => {
             cc.log('onEvent fired, code =', code, 'data =', JSON.stringify(data));
             if (code === 1 && data && data.action === 'guest_joined' && window._nmRole === 'host') {
-                cc.log('Host 收到 guest 加入，開始遊戲');
-                this._emit('start_game', { role: 'host' });
+                // Bug 1 fix: set _gameStarted here so the update() polling path never fires again
+                if (!this._gameStarted) {
+                    this._gameStarted = true;
+                    cc.log('Host 收到 guest_joined，開始遊戲');
+                    this._emit('start_game', { role: 'host' });
+                }
             } else {
                 this._emit('game_event', { code, data, actorNr });
             }
@@ -79,14 +82,20 @@ cc.Class({
             this._emit('error', { message: '連線錯誤：' + errorMsg });
         };
 
-        this._client.onOperationResponse = (errorCode, _errorMsg, _code) => {
+        this._client.onOperationResponse = (errorCode, _errorMsg, code) => {
             if (errorCode !== 0) {
-                this._emit('error', { message: '找不到房間，請確認代碼' });
+                // Only show "room not found" for join operations (opCode 255 = JoinRoom)
+                if (code === 255 || code === 227) {
+                    this._emit('error', { message: '找不到房間，請確認代碼' });
+                } else {
+                    this._emit('error', { message: '操作失敗 (code ' + code + ')' });
+                }
             }
         };
 
         this._client.onDisconnected = () => {
             window._nmReady = false;
+            this._gameStarted = false;
             this._emit('player_disconnected', {});
         };
 
@@ -98,7 +107,8 @@ cc.Class({
         if (!client) return;
         client.service();
 
-        // Host 輪詢：房間滿了就開始遊戲
+        // Bug 1 fix: _gameStarted is now set by BOTH onEvent and this path,
+        // so whichever fires first wins and the other becomes a no-op.
         if (window._nmRole === 'host' && !this._gameStarted) {
             const State = Photon.LoadBalancing.LoadBalancingClient.State;
             if (client.state === State.Joined) {
@@ -112,13 +122,23 @@ cc.Class({
         }
     },
 
+    // Bug 2 fix: support multiple callbacks per event type
     on(type, callback) {
         if (!this._callbacks) this._callbacks = {};
-        this._callbacks[type] = callback;
+        if (!this._callbacks[type]) this._callbacks[type] = [];
+        this._callbacks[type].push(callback);
+    },
+
+    // Bug 2 fix: allow removing a specific callback
+    off(type, callback) {
+        if (!this._callbacks || !this._callbacks[type]) return;
+        this._callbacks[type] = this._callbacks[type].filter(cb => cb !== callback);
     },
 
     _emit(type, data) {
-        if (this._callbacks && this._callbacks[type]) this._callbacks[type](data);
+        if (!this._callbacks || !this._callbacks[type]) return;
+        // Slice to avoid issues if a callback removes itself during iteration
+        this._callbacks[type].slice().forEach(cb => cb(data));
     },
 
     createRoom() {
