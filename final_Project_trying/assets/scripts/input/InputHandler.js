@@ -40,11 +40,11 @@ function buildBindings() {
             [Action.INTERACT]:   cc.macro.KEY.f,
         },
         2: {
-            [Action.MOVE_UP]:    cc.macro.KEY.up,
-            [Action.MOVE_DOWN]:  cc.macro.KEY.down,
-            [Action.MOVE_LEFT]:  cc.macro.KEY.left,
-            [Action.MOVE_RIGHT]: cc.macro.KEY.right,
-            [Action.INTERACT]:   cc.macro.KEY.space,
+            [Action.MOVE_UP]:    cc.macro.KEY.w,
+            [Action.MOVE_DOWN]:  cc.macro.KEY.s,
+            [Action.MOVE_LEFT]:  cc.macro.KEY.a,
+            [Action.MOVE_RIGHT]: cc.macro.KEY.d,
+            [Action.INTERACT]:   cc.macro.KEY.f,
         },
     };
 }

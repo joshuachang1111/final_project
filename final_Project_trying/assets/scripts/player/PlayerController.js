@@ -121,10 +121,13 @@ const PlayerController = cc.Class({
         if (this._movementState === MovementState.MOVING) return;
 
         const input = InputHandler.instance;
-        if (!input) return;
+        if (!input) {
+            cc.log('P' + this.playerId + ': InputHandler 不存在');
+            return;
+        }
 
         const A  = InputHandler.Action;
-        const id = this.playerId;
+        const id = 1; // 統一使用 WASD（binding 1）
 
         // ── 移動輸入（held） ──────────────────────────
         // 優先順序：上 > 下 > 左 > 右（同時按只處理第一個）

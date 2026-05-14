@@ -15,10 +15,9 @@ cc.Class({
         window._nmReady = false;
         cc.game.addPersistRootNode(this.node);
 
-        // Bug 2 fix: _callbacks stores arrays so multiple listeners can coexist
         this._callbacks = {};
         this._pendingAction = null;
-        this._gameStarted = false;   // Bug 1 fix: unified flag, set by BOTH trigger paths
+        this._gameStarted = false;
         this._initPhoton();
     },
 
@@ -56,22 +55,28 @@ cc.Class({
                 this._emit('room_created', { code: room.name });
             } else {
                 window._nmRole = 'guest';
-                // Bug 1 fix: mark started on guest side too
-                this._gameStarted = true;
-                this._client.raiseEvent(1, { action: 'guest_joined' });
-                this._emit('start_game', { role: 'guest' });
+                const guestName = (window._fbUser && window._fbUser.displayName) || '玩家2';
+                this._client.raiseEvent(1, { action: 'guest_joined', name: guestName });
+                // 通知 UI 顯示等待畫面，等 Host 按開始
+                this._emit('guest_waiting', { guestName });
             }
         };
 
         this._client.onEvent = (code, data, actorNr) => {
             cc.log('onEvent fired, code =', code, 'data =', JSON.stringify(data));
             if (code === 1 && data && data.action === 'guest_joined' && window._nmRole === 'host') {
-                // Bug 1 fix: set _gameStarted here so the update() polling path never fires again
+                // Host 收到 guest 加入，回傳自己名字，顯示等待開始畫面
+                const hostName = (window._fbUser && window._fbUser.displayName) || '玩家1';
+                this._client.raiseEvent(3, { action: 'host_info', name: hostName });
+                this._emit('guest_joined', { name: data.name });
+            } else if (code === 2 && data && data.action === 'host_start') {
+                // Host 按下開始，雙方進入遊戲
                 if (!this._gameStarted) {
                     this._gameStarted = true;
-                    cc.log('Host 收到 guest_joined，開始遊戲');
-                    this._emit('start_game', { role: 'host' });
+                    this._emit('start_game', { role: window._nmRole });
                 }
+            } else if (code === 3 && data && data.action === 'host_info' && window._nmRole === 'guest') {
+                this._emit('host_info', { name: data.name });
             } else {
                 this._emit('game_event', { code, data, actorNr });
             }
@@ -84,7 +89,6 @@ cc.Class({
 
         this._client.onOperationResponse = (errorCode, _errorMsg, code) => {
             if (errorCode !== 0) {
-                // Only show "room not found" for join operations (opCode 255 = JoinRoom)
                 if (code === 255 || code === 227) {
                     this._emit('error', { message: '找不到房間，請確認代碼' });
                 } else {
@@ -102,34 +106,13 @@ cc.Class({
         this._client.connectToRegionMaster('asia');
     },
 
-    update() {
-        const client = window._photonClient;
-        if (!client) return;
-        client.service();
-
-        // Bug 1 fix: _gameStarted is now set by BOTH onEvent and this path,
-        // so whichever fires first wins and the other becomes a no-op.
-        if (window._nmRole === 'host' && !this._gameStarted) {
-            const State = Photon.LoadBalancing.LoadBalancingClient.State;
-            if (client.state === State.Joined) {
-                const room = client.myRoom();
-                if (room && room.playerCount >= 2) {
-                    this._gameStarted = true;
-                    cc.log('Host 偵測到房間已滿，開始遊戲');
-                    this._emit('start_game', { role: 'host' });
-                }
-            }
-        }
-    },
-
-    // Bug 2 fix: support multiple callbacks per event type
+    // 支援同一事件多個 callback
     on(type, callback) {
         if (!this._callbacks) this._callbacks = {};
         if (!this._callbacks[type]) this._callbacks[type] = [];
         this._callbacks[type].push(callback);
     },
 
-    // Bug 2 fix: allow removing a specific callback
     off(type, callback) {
         if (!this._callbacks || !this._callbacks[type]) return;
         this._callbacks[type] = this._callbacks[type].filter(cb => cb !== callback);
@@ -137,7 +120,6 @@ cc.Class({
 
     _emit(type, data) {
         if (!this._callbacks || !this._callbacks[type]) return;
-        // Slice to avoid issues if a callback removes itself during iteration
         this._callbacks[type].slice().forEach(cb => cb(data));
     },
 
@@ -175,5 +157,13 @@ cc.Class({
         const client = window._photonClient;
         if (!client) { cc.error('sendGameEvent: client 不存在'); return; }
         client.raiseEvent(eventCode, data);
+    },
+
+    // Host 按下開始後呼叫
+    startGame() {
+        if (this._gameStarted) return;
+        this._gameStarted = true;
+        this._client.raiseEvent(2, { action: 'host_start' });
+        this._emit('start_game', { role: 'host' });
     },
 });
