@@ -199,12 +199,17 @@ cc.Class({
         this.mainPanel.active = true;
         this.hostPanel.active = false;
         this.joinPanel.active = false;
+        // 回主選單才恢復使用者面板
+        this._updateUserPanel();
     },
 
     _showHost() {
         this.mainPanel.active = false;
         this.hostPanel.active = true;
         this.joinPanel.active = false;
+        // 進入等待室隱藏登入按鈕，避免在等待中途切換帳號
+        if (this.loginBtn)     this.loginBtn.active     = false;
+        if (this.userInfoNode) this.userInfoNode.active  = false;
     },
 
     _showJoin() {
@@ -241,6 +246,13 @@ cc.Class({
     },
 
     onBack() {
+        this._showMain();
+    },
+
+    // HostPanel 的 Back 按鈕
+    onBackFromHost() {
+        const nm = window._nm;
+        if (nm) nm.leaveRoom();
         this._showMain();
     },
 

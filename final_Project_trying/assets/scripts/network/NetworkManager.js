@@ -166,4 +166,13 @@ cc.Class({
         this._client.raiseEvent(2, { action: 'host_start' });
         this._emit('start_game', { role: 'host' });
     },
+
+    leaveRoom() {
+        this._gameStarted = false;
+        window._nmRole = null;
+        window._nmRoomCode = null;
+        if (this._client) {
+            try { this._client.leaveRoom(); } catch(e) {}
+        }
+    },
 });
