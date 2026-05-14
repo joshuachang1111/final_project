@@ -26,7 +26,9 @@ final_project_trying/
         │   └── trashcan.png         垃圾桶（160×160）
         │
         ├── libs/
-        │   └── photon.js            Photon JS SDK（Import As Plugin）
+        │   ├── photon.js                Photon JS SDK（Import As Plugin）
+        │   ├── firebase-app-compat.js   Firebase App SDK（Import As Plugin）
+        │   └── firebase-auth-compat.js  Firebase Auth SDK（Import As Plugin）
         │
         ├── scripts/
         │   ├── core/
@@ -35,7 +37,7 @@ final_project_trying/
         │   │   ├── GameManager.js       遊戲狀態單例（phase / score / timer）
         │   │   └── GameNetworkBridge.js 本地 EventBus ↔ Photon 網路橋接
         │   ├── input/
-        │   │   └── InputHandler.js      按鍵 → 抽象 Action（P1: WASD+F / P2: 方向鍵+Space）
+        │   │   └── InputHandler.js      按鍵 → 抽象 Action（P1 & P2 皆為 WASD+F）
         │   ├── network/
         │   │   └── NetworkManager.js    Photon 連線、房間管理、事件收發
         │   ├── player/
@@ -44,7 +46,8 @@ final_project_trying/
         │   ├── station/
         │   │   └── StationBase.js       所有站台的基礎類別
         │   └── ui/
-        │       └── MenuManager.js       Lobby UI（建立 / 加入房間）
+        │       ├── MenuManager.js       Lobby UI（建立/加入房間、Google 登入、等待室名字顯示）
+        │       └── LoginManager.js      Firebase Google 登入邏輯（備用，目前整合於 MenuManager）
         │
         ├── station_prefabs/
         │   ├── Stove_3_1.prefab
@@ -108,7 +111,8 @@ final_project_trying/
 | `StationBase` | 所有站台的基礎類別，處理放置/拾取邏輯 | GridSystem, EventBus, GameManager |
 | `NetworkManager` | Photon LoadBalancing Client 封裝、房間建立/加入、事件收發；支援多個監聽者 | Photon SDK |
 | `GameNetworkBridge` | 將 EventBus 的本地事件（移動/站台互動）透過 NetworkManager 廣播，並將遠端事件重放回本地 | EventBus, GameManager, NetworkManager |
-| `MenuManager` | Lobby UI：顯示房間代碼、處理建立/加入按鈕；綁定 NetworkManager 回調 | NetworkManager |
+| `MenuManager` | Lobby UI：Google 登入、等待室玩家名字顯示、Host 控制開始、建立/加入房間 | NetworkManager, Firebase Auth |
+| `LoginManager` | Firebase Google 登入備用腳本（目前登入邏輯整合於 MenuManager） | Firebase Auth |
 
 ---
 
@@ -116,7 +120,9 @@ final_project_trying/
 
 | code | 方向 | 內容 | 說明 |
 |---|---|---|---|
-| `1` | Guest → Host | `{ action: 'guest_joined' }` | Guest 入房後通知 Host 開始遊戲 |
+| `1` | Guest → Host | `{ action: 'guest_joined', name }` | Guest 入房，帶名字通知 Host |
+| `2` | Host → Guest | `{ action: 'host_start' }` | Host 按下開始，雙方進入遊戲 |
+| `3` | Host → Guest | `{ action: 'host_info', name }` | Host 回傳自己名字給 Guest 顯示 |
 | `10` | 雙向 | `{ col, row, facing }` | 玩家移動同步 |
 | `11` | 雙向 | `{ playerId, stationType, col, row, item }` | 站台互動同步（拾取 / 放置） |
 
@@ -180,7 +186,9 @@ AnimationController 於 start() 預先快取全部 16 個 SpriteFrame。
 | 玩家 | 移動 | 互動 |
 |---|---|---|
 | Player 1 | W A S D | F |
-| Player 2 | ↑ ↓ ← → | Space |
+| Player 2 | W A S D | F |
+
+> 多人模式下兩台電腦各控制自己的角色，按鍵統一為 WASD + F。
 
 ---
 
@@ -203,11 +211,14 @@ AnimationController 於 start() 預先快取全部 16 個 SpriteFrame。
 - 格子系統（GridSystem）
 - 全域事件匯流排（EventBus）
 - 遊戲狀態管理（GameManager：LOBBY / PLAYING / RESULT、計時、計分）
-- 雙人按鍵輸入（InputHandler，P1: WASD+F / P2: 方向鍵+Space）
+- 雙人按鍵輸入（InputHandler，P1 & P2 統一 WASD+F）
 - 格子移動狀態機（PlayerController）
 - Sprite Sheet 動畫（AnimationController，含 SpriteFrame 預快取）
 - 站台基礎互動（StationBase：放置 / 拾取）
 - 站台 Prefab（Stove / FoodBox / Serving / Trash）
+- **Google 帳號登入**（Firebase Auth，顯示頭像與暱稱）
+- **等待室玩家名字顯示**（Host / Guest 雙方可見彼此暱稱）
+- **Host 控制開始**（Guest 加入後由 Host 按下開始才進入遊戲）
 - Lobby UI（MenuManager：建立房間 / 加入房間）
 - 網路連線（NetworkManager：Photon Cloud，房間代碼系統）
 - 網路同步（GameNetworkBridge：移動 + 站台互動雙向同步）
