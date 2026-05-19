@@ -174,7 +174,7 @@ const OrderManager = cc.Class({
     // ─────────────────────────────────────────────
 
     /** 取得目前訂單的副本（唯讀） */
-    get orders() { return this._orders.slice(); },
+    getOrders() { return (this._orders || []).slice(); },
 });
 
 module.exports = OrderManager;
