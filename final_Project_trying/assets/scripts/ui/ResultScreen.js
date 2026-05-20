@@ -51,24 +51,16 @@ const ResultScreen = cc.Class({
         if (this.resultPanel) this.resultPanel.active = false;
 
         EventBus.on('game:end', this._onGameEnd, this);
-
-        // 綁定按鈕事件
-        if (this.replayButton) {
-            this.replayButton.node.on('click', this._onReplay, this);
-        }
-        if (this.menuButton) {
-            this.menuButton.node.on('click', this._onMenu, this);
-        }
     },
 
     onDestroy() {
-        EventBus.off('game:end', this._onGameEnd);
+        EventBus.off('game:end', this._onGameEnd, this);
 
         if (this.replayButton) {
-            this.replayButton.node.off('click', this._onReplay, this);
+            this.replayButton.node.off(cc.Node.EventType.TOUCH_END, this._onReplay, this);
         }
         if (this.menuButton) {
-            this.menuButton.node.off('click', this._onMenu, this);
+            this.menuButton.node.off(cc.Node.EventType.TOUCH_END, this._onMenu, this);
         }
     },
 
@@ -84,6 +76,16 @@ const ResultScreen = cc.Class({
         }
 
         if (this.resultPanel) this.resultPanel.active = true;
+
+        // 在 panel 顯示後才綁定按鈕，確保節點 active 時才註冊觸控事件
+        if (this.replayButton) {
+            this.replayButton.node.off(cc.Node.EventType.TOUCH_END, this._onReplay, this); // 防重複
+            this.replayButton.node.on(cc.Node.EventType.TOUCH_END, this._onReplay, this);
+        }
+        if (this.menuButton) {
+            this.menuButton.node.off(cc.Node.EventType.TOUCH_END, this._onMenu, this); // 防重複
+            this.menuButton.node.on(cc.Node.EventType.TOUCH_END, this._onMenu, this);
+        }
     },
 
     // ─────────────────────────────────────────────
