@@ -114,8 +114,8 @@ const CookingStationBase = cc.Class({
     _onCookDone() {
         if (!this._heldItem) return;
 
-        // 把 node 名稱改成完成品名稱
-        const resultName      = this.resultPrefix + this._heldItem.name;
+        // 把 node 名稱改成完成品名稱：去掉 noncooked_ 前綴
+        const resultName      = this._heldItem.name.replace('noncooked_', '');
         this._heldItem.name   = resultName;
 
         this._cooking = false;

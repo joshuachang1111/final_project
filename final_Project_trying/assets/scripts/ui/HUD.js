@@ -55,6 +55,7 @@ const HUD = cc.Class({
 
         EventBus.on('game:start',      this._onGameStart,      this);
         EventBus.on('game:tick',       this._onGameTick,       this);
+        EventBus.on('order:tick',      this._onOrderTick,      this);
         EventBus.on('game:score',      this._onGameScore,      this);
         EventBus.on('game:end',        this._onGameEnd,        this);
         EventBus.on('order:added',     this._onOrderAdded,     this);
@@ -68,6 +69,7 @@ const HUD = cc.Class({
         EventBus.off('game:score',      this._onGameScore);
         EventBus.off('game:end',        this._onGameEnd);
         EventBus.off('order:added',     this._onOrderAdded);
+        EventBus.off('order:tick',      this._onOrderTick);
         EventBus.off('order:completed', this._onOrderCompleted);
         EventBus.off('order:expired',   this._onOrderExpired);
     },
@@ -79,8 +81,6 @@ const HUD = cc.Class({
     _onGameStart(data) {
         this._setTimer(data.timeLeft);
         this._setScore(0);
-        // 清除上一局殘留的訂單卡
-        this._clearAllOrders();
         cc.log('[HUD] 遊戲開始，時間:', data.timeLeft);
     },
 
@@ -95,6 +95,7 @@ const HUD = cc.Class({
     _onGameEnd(data) {
         this._setTimer(0);
         this._setScore(data.score);
+        this._clearAllOrders();
         cc.log('[HUD] 遊戲結束，最終分數:', data.score);
     },
 
@@ -126,6 +127,16 @@ const HUD = cc.Class({
     _onOrderExpired(data) {
         cc.log('[HUD] 訂單過期:', data.recipe, 'id=' + data.id);
         this._removeOrderCard(data.id);
+    },
+
+    _onOrderTick(data) {
+        const card = this._orderNodes[data.id];
+        if (!card) return;
+        const label = card.getComponent(cc.Label);
+        if (label) {
+            const parts = label.string.split('  ');
+            label.string = parts[0] + '  ' + data.timeLeft + 's';
+        }
     },
 
     // ─────────────────────────────────────────────

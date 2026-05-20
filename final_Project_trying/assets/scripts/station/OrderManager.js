@@ -132,6 +132,11 @@ const OrderManager = cc.Class({
                     id:     order.id,
                     recipe: order.recipe,
                 });
+            } else {
+                EventBus.emit('order:tick', {
+                    id:       order.id,
+                    timeLeft: order.timeLeft,
+                });
             }
         }
     },

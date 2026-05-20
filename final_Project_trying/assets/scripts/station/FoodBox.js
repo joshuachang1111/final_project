@@ -29,10 +29,10 @@ const FoodBox = cc.Class({
 
     /** 空手互動：產生新食材給玩家，不需要站台上有物品 */
     _onPickup(player) {
-        cc.log('[FoodBox] 產生食材:', this.foodType);
+        cc.log('[FoodBox] 產生食材:', 'noncooked_' + this.foodType);
 
-        // 建立一個代表食材的節點
-        const itemNode  = new cc.Node(this.foodType);
+        // 建立一個代表食材的節點，名稱加上 noncooked_ 前綴
+        const itemNode  = new cc.Node('noncooked_' + this.foodType);
         itemNode.width  = 40;
         itemNode.height = 40;
 
