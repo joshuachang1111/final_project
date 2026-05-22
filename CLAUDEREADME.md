@@ -31,25 +31,33 @@
 
 ---
 
-## 格子系統
+## 格子系統（2.5D）
 
 ```
 Canvas：960 × 640 px
 格子：12 欄（col）× 8 列（row），每格 80 × 80 px
-原點（世界座標左上角）：(-480, 320)
+座標軸：X=左右，Y=高度（固定 0），Z=前後深度
 
-toWorld(col, row):
+toWorld3D(col, row) → cc.Vec3:
   x = -480 + col * 80 + 40
-  y =  320 - row * 80 - 40
+  y = 0
+  z = -320 + row * 80 + 40
+
+toGrid(worldX, worldZ):
+  col = floor((worldX + 480) / 80)
+  row = floor((worldZ + 320) / 80)
 
 範例：
-  (0,0)   → (-440,  280)  左上角
-  (11,7)  → ( 440, -280)  右下角
-  (6,3)   → (  40,  -40)  接近中心
+  (0,0)   → cc.Vec3(-440, 0, -280)  左上角（最遠）
+  (11,7)  → cc.Vec3( 440, 0,  280)  右下角（最近）
+  (6,3)   → cc.Vec3(  40, 0,  -40)  接近中心
+
+toWorld(col, row) 保留為 alias，同等呼叫 toWorld3D。
 ```
 
-- Station 在 Inspector 設 `gridCol` / `gridRow`，`StationBase.onLoad()` 自動對齊並標記為 blocked
-- `GridSystem.setBlocked` 在 `StationBase.onLoad` 設 true，`onDestroy` 設 false
+- Station 在 Inspector 設 `gridCol` / `gridRow`，`StationBase.onLoad()` 自動 `setPosition(pos)` 並標記為 blocked
+- PlayerController `_tryMove` 的 tween 目標為 `{ x, z }`，y 固定不動
+- item node 懸浮在玩家頭頂：`itemNode.y = CELL_SIZE * 0.6`（y 才是高度）
 
 ---
 
