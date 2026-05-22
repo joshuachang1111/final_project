@@ -74,7 +74,7 @@ const StationBase = cc.Class({
         const pos = GridSystem.toWorld(this.gridCol, this.gridRow);
         this.node.x      = pos.x;
         this.node.y      = pos.y;
-        this.node.width  = GridSystem.CELL_W;
+        this.node.width  = GridSystem.getCellWidthAtRow(this.gridRow);
         this.node.height = GridSystem.CELL_H;
 
         // 登記為不可通行

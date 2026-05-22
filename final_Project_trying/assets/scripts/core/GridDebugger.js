@@ -56,17 +56,21 @@ const GridDebugger = cc.Class({
         const g = this._g;
         g.clear();
 
-        const b = GridSystem.floorBounds();   // { left, right, top, bottom }
-        const CW = GridSystem.CELL_W;         // 63
-        const CH = GridSystem.CELL_H;         // 56
-        const COLS = GridSystem.COLS;         // 12
-        const ROWS = GridSystem.ROWS;         // 8
+        const COLS     = GridSystem.COLS;
+        const ROWS     = GridSystem.ROWS;
+        const ROW_Y    = GridSystem.ROW_Y;
+        const ROW_LX   = GridSystem.ROW_LEFT_X;
+        const ROW_RX   = GridSystem.ROW_RIGHT_X;
 
-        // ── 地板邊界框（紅色）────────────────────────────────
+        // ── 透視梯形外框（紅色）──────────────────────────────
         if (this.showBounds) {
             g.strokeColor = new cc.Color(255, 50, 50, 220);
             g.lineWidth   = 2;
-            g.rect(b.left, b.bottom, b.right - b.left, b.top - b.bottom);
+            g.moveTo(ROW_LX[0],    ROW_Y[0]);
+            g.lineTo(ROW_RX[0],    ROW_Y[0]);
+            g.lineTo(ROW_RX[ROWS], ROW_Y[ROWS]);
+            g.lineTo(ROW_LX[ROWS], ROW_Y[ROWS]);
+            g.lineTo(ROW_LX[0],    ROW_Y[0]);
             g.stroke();
         }
 
@@ -75,20 +79,25 @@ const GridDebugger = cc.Class({
             g.strokeColor = new cc.Color(50, 220, 50, 160);
             g.lineWidth   = 1;
 
-            // 垂直線（欄分隔）
-            for (let c = 0; c <= COLS; c++) {
-                const x = b.left + c * CW;
-                g.moveTo(x, b.top);
-                g.lineTo(x, b.bottom);
+            // 水平線：每條邊界線用實測的左右端點
+            for (let i = 0; i <= ROWS; i++) {
+                g.moveTo(ROW_LX[i], ROW_Y[i]);
+                g.lineTo(ROW_RX[i], ROW_Y[i]);
                 g.stroke();
             }
 
-            // 水平線（列分隔）
-            for (let r = 0; r <= ROWS; r++) {
-                const y = b.top - r * CH;
-                g.moveTo(b.left,  y);
-                g.lineTo(b.right, y);
-                g.stroke();
+            // 垂直線：每欄邊界連接 9 個實測點（透視折線）
+            for (let c = 0; c <= COLS; c++) {
+                for (let i = 0; i < ROWS; i++) {
+                    const cellW0 = (ROW_RX[i]   - ROW_LX[i])   / COLS;
+                    const cellW1 = (ROW_RX[i+1] - ROW_LX[i+1]) / COLS;
+                    const x0 = ROW_LX[i]   + c * cellW0;
+                    const x1 = ROW_LX[i+1] + c * cellW1;
+                    if (i === 0) g.moveTo(x0, ROW_Y[i]);
+                    else         g.moveTo(x0, ROW_Y[i]);
+                    g.lineTo(x1, ROW_Y[i + 1]);
+                    g.stroke();
+                }
             }
         }
 
@@ -96,16 +105,12 @@ const GridDebugger = cc.Class({
         if (this.showCenters) {
             g.strokeColor = new cc.Color(255, 220, 0, 200);
             g.lineWidth   = 1;
-            const ARM = 4;
+            const ARM = 5;
             for (let c = 0; c < COLS; c++) {
                 for (let r = 0; r < ROWS; r++) {
                     const pos = GridSystem.toWorld(c, r);
-                    g.moveTo(pos.x - ARM, pos.y);
-                    g.lineTo(pos.x + ARM, pos.y);
-                    g.stroke();
-                    g.moveTo(pos.x, pos.y - ARM);
-                    g.lineTo(pos.x, pos.y + ARM);
-                    g.stroke();
+                    g.moveTo(pos.x - ARM, pos.y); g.lineTo(pos.x + ARM, pos.y); g.stroke();
+                    g.moveTo(pos.x, pos.y - ARM); g.lineTo(pos.x, pos.y + ARM); g.stroke();
                 }
             }
         }
@@ -115,13 +120,8 @@ const GridDebugger = cc.Class({
             g.fillColor = new cc.Color(50, 100, 255, 80);
             const blocked = GridSystem.getBlockedCells();
             for (const { col, row } of blocked) {
-                const pos = GridSystem.toWorld(col, row);
-                g.fillRect(
-                    pos.x - CW / 2,
-                    pos.y - CH / 2,
-                    CW,
-                    CH
-                );
+                const b = GridSystem.getCellBounds(col, row);
+                g.fillRect(b.left, b.bottom, b.right - b.left, b.top - b.bottom);
             }
         }
     },

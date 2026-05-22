@@ -36,9 +36,9 @@ const InputHandler = require('../input/InputHandler');
 
 // ── 移動常數 ────────────────────────────────────────────
 
-const SPEED             = 120;    // px/s
-const PLAYER_HALF_W     = 19;     // 碰撞半寬（大約 CELL_W * 0.3）
-const PLAYER_HALF_H     = 17;     // 碰撞半高（大約 CELL_H * 0.3）
+const SPEED             = 150;    // px/s
+const PLAYER_HALF_W     = 20;     // 碰撞半寬（玩家約 40px 寬）
+const PLAYER_HALF_H     = 14;     // 碰撞半高（玩家約 28px 高）
 const NET_SEND_INTERVAL = 0.05;   // 20 Hz 網路同步
 
 const INV_SQRT2 = 0.70710678;
@@ -105,10 +105,8 @@ const PlayerController = cc.Class({
         // 網路計時
         this._netTimer = 0;
 
-        // 地板邊界（快取，避免每幀重算）
+        // 地板 Y 邊界（固定）；X 邊界因透視每幀由 getFloorXBoundsAtWorldY 算
         const b = GridSystem.floorBounds();
-        this._floorLeft   = b.left;
-        this._floorRight  = b.right;
         this._floorTop    = b.top;
         this._floorBottom = b.bottom;
 
@@ -196,21 +194,18 @@ const PlayerController = cc.Class({
     _moveWithCollision(dt) {
         const blocked = GridSystem.getBlockedCells();
 
-        // ── X 軸移動 ─────────────────────────────────
+        // ── X 軸移動（透視梯形邊界，依當前 Y 計算）──────────
         let nx = this._px + this._vx * dt;
-        // 地板邊界
-        nx = Math.max(this._floorLeft  + PLAYER_HALF_W,
-             Math.min(this._floorRight - PLAYER_HALF_W, nx));
-        // 站台碰撞
+        const xb = GridSystem.getFloorXBoundsAtWorldY(this._py);
+        nx = Math.max(xb.left  + PLAYER_HALF_W,
+             Math.min(xb.right - PLAYER_HALF_W, nx));
         nx = this._resolveAxisX(blocked, nx, this._py);
         this._px = nx;
 
         // ── Y 軸移動 ─────────────────────────────────
         let ny = this._py + this._vy * dt;
-        // 地板邊界
         ny = Math.max(this._floorBottom + PLAYER_HALF_H,
              Math.min(this._floorTop    - PLAYER_HALF_H, ny));
-        // 站台碰撞
         ny = this._resolveAxisY(blocked, this._px, ny);
         this._py = ny;
 
@@ -224,54 +219,43 @@ const PlayerController = cc.Class({
      */
     _resolveAxisX(blocked, nx, py) {
         for (const { col, row } of blocked) {
-            const c = GridSystem.toWorld(col, row);
-            const cellL = c.x - GridSystem.CELL_W / 2;
-            const cellR = c.x + GridSystem.CELL_W / 2;
-            const cellB = c.y - GridSystem.CELL_H / 2;
-            const cellT = c.y + GridSystem.CELL_H / 2;
+            const b = GridSystem.getCellBounds(col, row);
 
-            // 在 Y 方向是否有重疊？
-            if (py - PLAYER_HALF_H >= cellT) continue;
-            if (py + PLAYER_HALF_H <= cellB) continue;
+            // Y 方向無重疊 → 跳過
+            if (py - PLAYER_HALF_H >= b.top)    continue;
+            if (py + PLAYER_HALF_H <= b.bottom) continue;
 
-            // 在 X 方向是否重疊？
-            if (nx + PLAYER_HALF_W <= cellL) continue;
-            if (nx - PLAYER_HALF_W >= cellR) continue;
+            // X 方向無重疊 → 跳過
+            if (nx + PLAYER_HALF_W <= b.left)  continue;
+            if (nx - PLAYER_HALF_W >= b.right) continue;
 
-            // 依據玩家相對格子中心的位置決定推出方向
-            if (this._px <= c.x) {
-                nx = cellL - PLAYER_HALF_W;   // 推到格子左邊
+            // 依舊位置決定推出方向
+            if (this._px <= b.cx) {
+                nx = b.left  - PLAYER_HALF_W;
             } else {
-                nx = cellR + PLAYER_HALF_W;   // 推到格子右邊
+                nx = b.right + PLAYER_HALF_W;
             }
         }
         return nx;
     },
 
-    /**
-     * 解算 Y 軸碰撞：固定 X 為 px（已解算後的值），嘗試將 Y 移到 ny。
-     */
     _resolveAxisY(blocked, px, ny) {
         for (const { col, row } of blocked) {
-            const c = GridSystem.toWorld(col, row);
-            const cellL = c.x - GridSystem.CELL_W / 2;
-            const cellR = c.x + GridSystem.CELL_W / 2;
-            const cellB = c.y - GridSystem.CELL_H / 2;
-            const cellT = c.y + GridSystem.CELL_H / 2;
+            const b = GridSystem.getCellBounds(col, row);
 
-            // 在 X 方向是否有重疊？
-            if (px - PLAYER_HALF_W >= cellR) continue;
-            if (px + PLAYER_HALF_W <= cellL) continue;
+            // X 方向無重疊 → 跳過
+            if (px - PLAYER_HALF_W >= b.right) continue;
+            if (px + PLAYER_HALF_W <= b.left)  continue;
 
-            // 在 Y 方向是否重疊？
-            if (ny + PLAYER_HALF_H <= cellB) continue;
-            if (ny - PLAYER_HALF_H >= cellT) continue;
+            // Y 方向無重疊 → 跳過
+            if (ny + PLAYER_HALF_H <= b.bottom) continue;
+            if (ny - PLAYER_HALF_H >= b.top)    continue;
 
-            // 依據玩家相對格子中心的位置決定推出方向
-            if (this._py <= c.y) {
-                ny = cellB - PLAYER_HALF_H;   // 推到格子下方
+            // 依舊位置決定推出方向
+            if (this._py <= b.cy) {
+                ny = b.bottom - PLAYER_HALF_H;
             } else {
-                ny = cellT + PLAYER_HALF_H;   // 推到格子上方
+                ny = b.top    + PLAYER_HALF_H;
             }
         }
         return ny;
