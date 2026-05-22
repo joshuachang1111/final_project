@@ -56,8 +56,8 @@ cc.Class({
         if (data.playerId !== this._localId) return;
         if (!window._nm) return;
         window._nm.sendGameEvent(EV_MOVE, {
-            col:    data.col,
-            row:    data.row,
+            x:      data.x,
+            y:      data.y,
             facing: data.facing,
         });
     },
@@ -112,7 +112,7 @@ cc.Class({
         if (!GameManager.instance) return;
         const remote = GameManager.instance.getPlayer(this._remoteId);
         if (!remote) { cc.log('Bridge: 找不到 remoteId =', this._remoteId); return; }
-        remote.applyNetworkState(data.col, data.row, data.facing);
+        remote.applyNetworkState(data.x, data.y, data.facing);
     },
 
     // Bug 4 fix: properly replay station interactions using the 'action' field.

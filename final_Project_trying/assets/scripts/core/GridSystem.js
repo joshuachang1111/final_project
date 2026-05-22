@@ -98,6 +98,31 @@ const GridSystem = {
     },
 
     /**
+     * 回傳所有不可通行格子的陣列（供碰撞解算使用）
+     * @returns {{ col: number, row: number }[]}
+     */
+    getBlockedCells() {
+        const result = [];
+        for (const key of _blocked) {
+            const [col, row] = key.split(',').map(Number);
+            result.push({ col, row });
+        }
+        return result;
+    },
+
+    /**
+     * 地板世界座標範圍（玩家可站立的邊界）
+     */
+    floorBounds() {
+        return {
+            left:   ORIGIN_X,
+            right:  ORIGIN_X + COLS * CELL_W,
+            top:    ORIGIN_Y,
+            bottom: ORIGIN_Y - ROWS * CELL_H,
+        };
+    },
+
+    /**
      * 清除所有格子狀態（換場景時使用）
      */
     reset() {

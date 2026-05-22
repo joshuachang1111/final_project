@@ -2,32 +2,31 @@
  * PlayerController  (cc.Component)
  * 掛在每個玩家的節點上。
  *
- * ── 狀態機 ─────────────────────────────────────────────
+ * ── 移動系統（velocity-based，自由行走）──────────────────
  *
- *  移動狀態 (MovementState)
- *   IDLE    → 接受輸入，可以移動或互動
- *   MOVING  → tween 執行中，忽略所有輸入
- *
- *  持有狀態 (CarryState)
- *   EMPTY   → 雙手空著
- *   HOLDING → 拿著一個 item node
- *
- *  兩個狀態獨立，組合出：
- *   IDLE + EMPTY    → 可移動、可拾取
- *   IDLE + HOLDING  → 可移動、可放下 / 遞交
- *   MOVING + *      → 不能做任何事，等 tween 結束
+ *  玩家在世界座標 (x, y) 中連續移動，不鎖格。
+ *  SPEED = 120 px/s，對角線時除以 √2（維持速度恆定）。
+ *  碰撞採 AABB + 分軸解算（先解 X，再解 Y），支援沿牆滑動。
+ *  碰撞對象：GridSystem.setBlocked(true) 的格子 + 地板邊界。
  *
  * ── 朝向 (Facing) ──────────────────────────────────────
  *  UP / DOWN / LEFT / RIGHT
- *  按下移動鍵時立即更新朝向，並嘗試移動。
- *  互動時以當前朝向的前方格子為目標。
+ *  以最後一個「主要按鍵」決定，對角線時以垂直鍵優先。
  *
  * ── 互動流程 ───────────────────────────────────────────
  *  1. 玩家按下 INTERACT
- *  2. 計算朝向前方的格子 (targetCol, targetRow)
- *  3. 向 GameManager 查詢該格子是否有 StationBase
- *  4. 有 → 呼叫 station.onInteract(this)，由 station 決定行為
- *  5. 沒有 → 無事發生
+ *  2. 由當前 world 座標算出所在格子 (col, row)
+ *  3. 在朝向的前方格子查詢 StationBase
+ *  4. 有 → 呼叫 station.onInteract(this)
+ *
+ * ── 持有狀態 (CarryState) ──────────────────────────────
+ *  EMPTY   → 雙手空著
+ *  HOLDING → 拿著一個 item node（顯示在頭頂）
+ *
+ * ── 網路同步（20 Hz）─────────────────────────────────
+ *  每 NET_SEND_INTERVAL 秒 emit 一次 'player:moved'
+ *  payload: { playerId, x, y, facing }
+ *  遠端玩家收到後呼叫 applyNetworkState(x, y, facingName)
  */
 
 const GridSystem   = require('../core/GridSystem');
@@ -35,19 +34,23 @@ const EventBus     = require('../core/EventBus');
 const GameManager  = require('../core/GameManager');
 const InputHandler = require('../input/InputHandler');
 
-// ── 常數 ─────────────────────────────────────────────────
+// ── 移動常數 ────────────────────────────────────────────
 
-const MovementState = {
-    IDLE:   'idle',
-    MOVING: 'moving',
-};
+const SPEED             = 120;    // px/s
+const PLAYER_HALF_W     = 19;     // 碰撞半寬（大約 CELL_W * 0.3）
+const PLAYER_HALF_H     = 17;     // 碰撞半高（大約 CELL_H * 0.3）
+const NET_SEND_INTERVAL = 0.05;   // 20 Hz 網路同步
+
+const INV_SQRT2 = 0.70710678;
+
+// ── 狀態 ────────────────────────────────────────────────
 
 const CarryState = {
     EMPTY:   'empty',
     HOLDING: 'holding',
 };
 
-/** 四個方向的格子偏移 */
+/** 四個方向的格子偏移（互動用） */
 const Direction = {
     UP:    { dc:  0, dr: -1, name: 'up'    },
     DOWN:  { dc:  0, dr:  1, name: 'down'  },
@@ -61,7 +64,6 @@ const PlayerController = cc.Class({
     extends: cc.Component,
 
     statics: {
-        MovementState,
         CarryState,
         Direction,
     },
@@ -73,12 +75,7 @@ const PlayerController = cc.Class({
             type: cc.Integer,
             tooltip: '1 或 2，對應 InputHandler 的按鍵配置',
         },
-        /** 每格移動耗時（秒） */
-        moveTime: {
-            default: 0.12,
-            tooltip: '越小越快，建議 0.10 ~ 0.18',
-        },
-        /** 初始格子位置 */
+        /** 初始格子位置（用格子座標，onLoad 會轉成世界座標） */
         startCol: { default: 1, type: cc.Integer },
         startRow: { default: 4, type: cc.Integer },
     },
@@ -88,19 +85,35 @@ const PlayerController = cc.Class({
     // ─────────────────────────────────────────────
 
     onLoad() {
-        this._col           = this.startCol;
-        this._row           = this.startRow;
-        this._facing        = Direction.DOWN;
-        this._movementState = MovementState.IDLE;
-        this._carryState    = CarryState.EMPTY;
-        this._heldItem      = null;   // 拿著的 cc.Node
+        // 世界座標（連續值）
+        const pos = GridSystem.toWorld(this.startCol, this.startRow);
+        this._px = pos.x;
+        this._py = pos.y;
 
-        // 對齊到起始格子
-        const pos = GridSystem.toWorld(this._col, this._row);
-        this.node.x = pos.x;
-        this.node.y = pos.y;
+        // 速度
+        this._vx = 0;
+        this._vy = 0;
 
-        // 向 GameManager 登記自己
+        // 狀態
+        this._facing     = Direction.DOWN;
+        this._carryState = CarryState.EMPTY;
+        this._heldItem   = null;
+
+        // 網路計時
+        this._netTimer = 0;
+
+        // 地板邊界（快取，避免每幀重算）
+        const b = GridSystem.floorBounds();
+        this._floorLeft   = b.left;
+        this._floorRight  = b.right;
+        this._floorTop    = b.top;
+        this._floorBottom = b.bottom;
+
+        // 設定初始位置
+        this.node.x = this._px;
+        this.node.y = this._py;
+
+        // 向 GameManager 登記
         if (GameManager.instance) {
             GameManager.instance.registerPlayer(this.playerId, this);
         }
@@ -110,70 +123,154 @@ const PlayerController = cc.Class({
     //  主迴圈
     // ─────────────────────────────────────────────
 
-    update() {
+    update(dt) {
         // 多人模式：只有本地玩家才接受鍵盤輸入
         if (window._nmRole) {
             const localId = window._nmRole === 'host' ? 1 : 2;
             if (this.playerId !== localId) return;
         }
 
-        // tween 執行中，不接受任何輸入
-        if (this._movementState === MovementState.MOVING) return;
-
         const input = InputHandler.instance;
-        if (!input) {
-            cc.log('P' + this.playerId + ': InputHandler 不存在');
-            return;
-        }
+        if (!input) return;
 
         const A  = InputHandler.Action;
-        const id = 1; // 統一使用 WASD（binding 1）
+        const id = 1;   // 統一使用 binding 1（WASD）
 
-        // ── 移動輸入（held） ──────────────────────────
-        // 優先順序：上 > 下 > 左 > 右（同時按只處理第一個）
-        let dir = null;
-        if      (input.isHeld(id, A.MOVE_UP))    dir = Direction.UP;
-        else if (input.isHeld(id, A.MOVE_DOWN))  dir = Direction.DOWN;
-        else if (input.isHeld(id, A.MOVE_LEFT))  dir = Direction.LEFT;
-        else if (input.isHeld(id, A.MOVE_RIGHT)) dir = Direction.RIGHT;
+        // ── 收集方向輸入 ─────────────────────────────
+        const up    = input.isHeld(id, A.MOVE_UP);
+        const down  = input.isHeld(id, A.MOVE_DOWN);
+        const left  = input.isHeld(id, A.MOVE_LEFT);
+        const right = input.isHeld(id, A.MOVE_RIGHT);
 
-        if (dir) {
-            this._facing = dir;   // 按鍵時立即更新朝向
-            this._tryMove(this._col + dir.dc, this._row + dir.dr);
+        let vx = 0;
+        let vy = 0;
+        if (left)  vx -= 1;
+        if (right) vx += 1;
+        if (up)    vy += 1;
+        if (down)  vy -= 1;
+
+        // 對角線速度正規化（維持恆速 120 px/s）
+        if (vx !== 0 && vy !== 0) {
+            vx *= INV_SQRT2;
+            vy *= INV_SQRT2;
         }
 
-        // ── 互動輸入（just pressed） ──────────────────
+        this._vx = vx * SPEED;
+        this._vy = vy * SPEED;
+
+        // 更新朝向（垂直優先）
+        if      (up)    this._facing = Direction.UP;
+        else if (down)  this._facing = Direction.DOWN;
+        else if (left)  this._facing = Direction.LEFT;
+        else if (right) this._facing = Direction.RIGHT;
+
+        // ── 移動 + 碰撞 ──────────────────────────────
+        this._moveWithCollision(dt);
+
+        // ── 互動 ─────────────────────────────────────
         if (input.isJustPressed(id, A.INTERACT)) {
             this._tryInteract();
+        }
+
+        // ── 網路同步 ─────────────────────────────────
+        this._netTimer += dt;
+        if (this._netTimer >= NET_SEND_INTERVAL) {
+            this._netTimer = 0;
+            EventBus.emit('player:moved', {
+                playerId: this.playerId,
+                x:        this._px,
+                y:        this._py,
+                facing:   this._facing.name,
+            });
         }
     },
 
     // ─────────────────────────────────────────────
-    //  移動
+    //  移動與碰撞
     // ─────────────────────────────────────────────
 
-    _tryMove(targetCol, targetRow) {
-        if (!GridSystem.isWalkable(targetCol, targetRow)) return;
+    _moveWithCollision(dt) {
+        const blocked = GridSystem.getBlockedCells();
 
-        this._movementState = MovementState.MOVING;
-        this._col = targetCol;
-        this._row = targetRow;
+        // ── X 軸移動 ─────────────────────────────────
+        let nx = this._px + this._vx * dt;
+        // 地板邊界
+        nx = Math.max(this._floorLeft  + PLAYER_HALF_W,
+             Math.min(this._floorRight - PLAYER_HALF_W, nx));
+        // 站台碰撞
+        nx = this._resolveAxisX(blocked, nx, this._py);
+        this._px = nx;
 
-        const pos = GridSystem.toWorld(targetCol, targetRow);
+        // ── Y 軸移動 ─────────────────────────────────
+        let ny = this._py + this._vy * dt;
+        // 地板邊界
+        ny = Math.max(this._floorBottom + PLAYER_HALF_H,
+             Math.min(this._floorTop    - PLAYER_HALF_H, ny));
+        // 站台碰撞
+        ny = this._resolveAxisY(blocked, this._px, ny);
+        this._py = ny;
 
-        cc.tween(this.node)
-            .to(this.moveTime, { x: pos.x, y: pos.y }, { easing: 'quadOut' })
-            .call(() => {
-                this._movementState = MovementState.IDLE;
-            })
-            .start();
+        this.node.x = this._px;
+        this.node.y = this._py;
+    },
 
-        EventBus.emit('player:moved', {
-            playerId: this.playerId,
-            col:      this._col,
-            row:      this._row,
-            facing:   this._facing.name,
-        });
+    /**
+     * 解算 X 軸碰撞：固定 Y 為 py，嘗試將 X 移到 nx。
+     * 若與任何站台 AABB 重疊，將 nx 推到格子邊界外。
+     */
+    _resolveAxisX(blocked, nx, py) {
+        for (const { col, row } of blocked) {
+            const c = GridSystem.toWorld(col, row);
+            const cellL = c.x - GridSystem.CELL_W / 2;
+            const cellR = c.x + GridSystem.CELL_W / 2;
+            const cellB = c.y - GridSystem.CELL_H / 2;
+            const cellT = c.y + GridSystem.CELL_H / 2;
+
+            // 在 Y 方向是否有重疊？
+            if (py - PLAYER_HALF_H >= cellT) continue;
+            if (py + PLAYER_HALF_H <= cellB) continue;
+
+            // 在 X 方向是否重疊？
+            if (nx + PLAYER_HALF_W <= cellL) continue;
+            if (nx - PLAYER_HALF_W >= cellR) continue;
+
+            // 依據玩家相對格子中心的位置決定推出方向
+            if (this._px <= c.x) {
+                nx = cellL - PLAYER_HALF_W;   // 推到格子左邊
+            } else {
+                nx = cellR + PLAYER_HALF_W;   // 推到格子右邊
+            }
+        }
+        return nx;
+    },
+
+    /**
+     * 解算 Y 軸碰撞：固定 X 為 px（已解算後的值），嘗試將 Y 移到 ny。
+     */
+    _resolveAxisY(blocked, px, ny) {
+        for (const { col, row } of blocked) {
+            const c = GridSystem.toWorld(col, row);
+            const cellL = c.x - GridSystem.CELL_W / 2;
+            const cellR = c.x + GridSystem.CELL_W / 2;
+            const cellB = c.y - GridSystem.CELL_H / 2;
+            const cellT = c.y + GridSystem.CELL_H / 2;
+
+            // 在 X 方向是否有重疊？
+            if (px - PLAYER_HALF_W >= cellR) continue;
+            if (px + PLAYER_HALF_W <= cellL) continue;
+
+            // 在 Y 方向是否重疊？
+            if (ny + PLAYER_HALF_H <= cellB) continue;
+            if (ny - PLAYER_HALF_H >= cellT) continue;
+
+            // 依據玩家相對格子中心的位置決定推出方向
+            if (this._py <= c.y) {
+                ny = cellB - PLAYER_HALF_H;   // 推到格子下方
+            } else {
+                ny = cellT + PLAYER_HALF_H;   // 推到格子上方
+            }
+        }
+        return ny;
     },
 
     // ─────────────────────────────────────────────
@@ -181,13 +278,12 @@ const PlayerController = cc.Class({
     // ─────────────────────────────────────────────
 
     _tryInteract() {
-        const targetCol = this._col + this._facing.dc;
-        const targetRow = this._row + this._facing.dr;
+        const { col, row } = GridSystem.toGrid(this._px, this._py);
+        const targetCol = col + this._facing.dc;
+        const targetRow = row + this._facing.dr;
 
-        const station = GameManager.instance
-            ? GameManager.instance.getStation(targetCol, targetRow)
-            : null;
-
+        if (!GameManager.instance) return;
+        const station = GameManager.instance.getStation(targetCol, targetRow);
         if (station) {
             station.onInteract(this);
         }
@@ -198,7 +294,7 @@ const PlayerController = cc.Class({
     // ─────────────────────────────────────────────
 
     /**
-     * 從站台拿起 item node
+     * 從站台拿起 item node，顯示在頭上。
      * @param {cc.Node} itemNode
      */
     pickUp(itemNode) {
@@ -207,10 +303,9 @@ const PlayerController = cc.Class({
         this._heldItem   = itemNode;
         this._carryState = CarryState.HOLDING;
 
-        // 將 item 節點掛到玩家節點下方，顯示在頭上
         itemNode.parent = this.node;
         itemNode.x = 0;
-        itemNode.y = GridSystem.CELL_H * 0.6;   // 懸浮在頭頂：約 34px
+        itemNode.y = GridSystem.CELL_H * 0.6;   // 懸浮在頭頂 ≈ 34 px
 
         EventBus.emit('player:pickup', {
             playerId: this.playerId,
@@ -219,7 +314,7 @@ const PlayerController = cc.Class({
     },
 
     /**
-     * 將持有的 item node 還給呼叫者
+     * 將持有的 item node 還給呼叫者。
      * @returns {cc.Node|null}
      */
     dropItem() {
@@ -241,18 +336,25 @@ const PlayerController = cc.Class({
     //  網路同步（遠端玩家）
     // ─────────────────────────────────────────────
 
-    applyNetworkState(col, row, facingName) {
-        this._col = col;
-        this._row = row;
+    /**
+     * 收到遠端玩家位置更新時呼叫。
+     * @param {number} x     世界座標 X
+     * @param {number} y     世界座標 Y
+     * @param {string} facingName  'up' | 'down' | 'left' | 'right'
+     */
+    applyNetworkState(x, y, facingName) {
         for (const key in Direction) {
             if (Direction[key].name === facingName) {
                 this._facing = Direction[key];
                 break;
             }
         }
-        const pos = GridSystem.toWorld(col, row);
         cc.tween(this.node)
-            .to(0.1, { x: pos.x, y: pos.y })
+            .to(0.08, { x, y })
+            .call(() => {
+                this._px = this.node.x;
+                this._py = this.node.y;
+            })
             .start();
     },
 
@@ -260,12 +362,17 @@ const PlayerController = cc.Class({
     //  Getter
     // ─────────────────────────────────────────────
 
-    get col()           { return this._col;           },
-    get row()           { return this._row;           },
-    get facing()        { return this._facing;        },
-    get movementState() { return this._movementState; },
-    get carryState()    { return this._carryState;    },
-    get heldItem()      { return this._heldItem;      },
+    /** 動態由世界座標算出目前所在格子欄 */
+    get col()     { return GridSystem.toGrid(this._px, this._py).col; },
+    /** 動態由世界座標算出目前所在格子列 */
+    get row()     { return GridSystem.toGrid(this._px, this._py).row; },
+    get facing()  { return this._facing; },
+    /** true 代表目前有速度（動畫控制器用） */
+    get isMoving() { return this._vx !== 0 || this._vy !== 0; },
+    /** 向後相容（AnimationController 可改用 isMoving） */
+    get movementState() { return this.isMoving ? 'moving' : 'idle'; },
+    get carryState()    { return this._carryState; },
+    get heldItem()      { return this._heldItem; },
     isCarrying()        { return this._carryState === CarryState.HOLDING; },
 });
 
