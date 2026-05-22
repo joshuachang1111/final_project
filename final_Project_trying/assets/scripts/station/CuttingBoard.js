@@ -1,9 +1,7 @@
 /**
  * CuttingBoard  (extends CookingStationBase)
- * 砧板：將食材切成 'chopped_xxx'。
- *
- * 預設 cookTime = 4 秒，resultPrefix = 'chopped_'
- * 可在 Inspector 覆蓋這兩個值。
+ * 砧板：將食材切割（noncooked_X → X）。
+ * 預設 cookTime = 4 秒，可在 Inspector 覆蓋。
  */
 
 const CookingStationBase = require('./CookingStationBase');
@@ -16,10 +14,7 @@ const CuttingBoard = cc.Class({
             override: true,
             default:  4,
         },
-        resultPrefix: {
-            override: true,
-            default:  'chopped_',
-        },
+        // Bug 1 fix: resultPrefix removed from base class, no override needed
     },
 });
 

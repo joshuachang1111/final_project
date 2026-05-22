@@ -50,8 +50,9 @@ const HUD = cc.Class({
     // ─────────────────────────────────────────────
 
     onLoad() {
-        // id → cc.Node，用來快速找到並移除訂單卡
-        this._orderNodes = {};
+        // Bug 6 fix: store { node, recipe } instead of bare cc.Node
+        // so _onOrderTick can reconstruct the label without fragile string splitting
+        this._orderNodes = {};   // id → { node: cc.Node, recipe: string }
 
         EventBus.on('game:start',      this._onGameStart,      this);
         EventBus.on('game:tick',       this._onGameTick,       this);
@@ -114,7 +115,8 @@ const HUD = cc.Class({
         card.color     = cc.Color.WHITE;
 
         this.orderContainer.addChild(card);
-        this._orderNodes[data.id] = card;
+        // Bug 6 fix: store recipe alongside node for safe label reconstruction
+        this._orderNodes[data.id] = { node: card, recipe: data.recipe };
 
         cc.log('[HUD] 訂單新增:', data.recipe, 'id=' + data.id);
     },
@@ -130,12 +132,12 @@ const HUD = cc.Class({
     },
 
     _onOrderTick(data) {
-        const card = this._orderNodes[data.id];
-        if (!card) return;
-        const label = card.getComponent(cc.Label);
+        const entry = this._orderNodes[data.id];
+        if (!entry) return;
+        const label = entry.node.getComponent(cc.Label);
+        // Bug 6 fix: reconstruct from stored recipe instead of splitting string
         if (label) {
-            const parts = label.string.split('  ');
-            label.string = parts[0] + '  ' + data.timeLeft + 's';
+            label.string = entry.recipe + '  ' + data.timeLeft + 's';
         }
     },
 
@@ -156,17 +158,17 @@ const HUD = cc.Class({
     },
 
     _removeOrderCard(id) {
-        const card = this._orderNodes[id];
-        if (card) {
-            card.destroy();
+        const entry = this._orderNodes[id];
+        if (entry) {
+            entry.node.destroy();
             delete this._orderNodes[id];
         }
     },
 
     _clearAllOrders() {
         Object.keys(this._orderNodes).forEach(id => {
-            const card = this._orderNodes[id];
-            if (card) card.destroy();
+            const entry = this._orderNodes[id];
+            if (entry) entry.node.destroy();
         });
         this._orderNodes = {};
     },

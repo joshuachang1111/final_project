@@ -174,6 +174,26 @@ const OrderManager = cc.Class({
         return true;
     },
 
+    /**
+     * Bug 3/4 fix: 遠端同步用。
+     * 移除第一筆符合 recipe 的訂單，不加分、不廣播事件。
+     * 分數與 order:completed 由 GameNetworkBridge 直接處理。
+     * @param {string} recipe
+     * @returns {boolean}
+     */
+    /**
+     * 遠端同步用：移除符合 recipe 的訂單，回傳 reward（0 表示找不到）。
+     * 不加分、不廣播事件，由 GameNetworkBridge 負責後續處理。
+     */
+    consumeOrder(recipe) {
+        const idx = this._orders.findIndex(o => o.recipe === recipe);
+        if (idx === -1) return 0;
+        const reward = this._orders[idx].reward;
+        this._orders.splice(idx, 1);
+        cc.log('[OrderManager] consumeOrder (remote sync) recipe=' + recipe + ' reward=' + reward);
+        return reward;
+    },
+
     // ─────────────────────────────────────────────
     //  Getter
     // ─────────────────────────────────────────────

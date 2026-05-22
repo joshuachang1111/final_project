@@ -198,10 +198,15 @@ AnimationController 於 start() 預先快取全部 16 個 SpriteFrame。
 |---|---|---|---|
 | 1 | `NetworkManager.js` | Host 收到 `start_game` 兩次，`cc.director.loadScene` 被呼叫兩次 | `_gameStarted` 改為 `onEvent` 與 `update()` 共用的統一旗標 |
 | 2 | `NetworkManager.js` | `on()` 直接覆蓋 callback，多個監聽者互相覆蓋 | `_callbacks[type]` 改為陣列，新增 `off()` |
-| 3 | `GameNetworkBridge.js` | 站台互動（拾取/放置）完全未透過網路同步 | 監聽 `station:pickup` / `station:place`，以 event code 11 廣播並在對端重放 |
-| 4 | `GameNetworkBridge.js` | `GameManager.startGame()` 從未被呼叫，計時器永不啟動 | `onLoad()` 延遲一幀後呼叫 `startGame()` |
-| 5 | `GameNetworkBridge.js` | `window._nm.on('game_event', ...)` 傳入匿名函式，無法在 `onDestroy` 移除，場景重載後累積 | callback 存為 `this._onGameEvent`，`onDestroy` 呼叫 `nm.off()` |
-| 6 | `AnimationController.js` | `_showFrame()` 每幀 `new cc.SpriteFrame()`，產生大量 GC 壓力 | `start()` 預先建立全部 16 個 SpriteFrame 並快取為 `this._frames[row][col]` |
+| 3 | `GameNetworkBridge.js` | 站台互動未同步、startGame 未呼叫、anonymous callback 洩漏 | 拆分 handler、延遲 startGame、存 callback 參考 |
+| 4 | `AnimationController.js` | `_showFrame()` 每幀 `new cc.SpriteFrame()`，GC 壓力 | `start()` 預快取 16 個 SpriteFrame |
+| 5 | `CookingStationBase.js` | `resultPrefix` 宣告卻從未使用（死碼） | 移除 `resultPrefix` 屬性，`_onCookDone` 直接 strip `noncooked_` |
+| 6 | `CookingStationBase.js` | 烹飪中場景重載，`scheduleOnce` callback 在已銷毀元件上觸發 | `onDestroy` 呼叫 `unscheduleAllCallbacks()` |
+| 7 | `ServingCounter.js` | `_onPlace` 未 emit `station:place`，出餐同步失效 | 補上 `station:place` + 新增 `station:serve` 事件供 Bridge 同步 |
+| 8 | `GameNetworkBridge.js` | 遠端玩家 carryState 從未同步，place 互動在對端永遠失敗 | 拆分 pickup/place handler，加 `action` 欄位；place 時強制設 remote carryState |
+| 9 | `GameNetworkBridge.js` | ServingCounter 出餐透過 EV_STATION 同步會雙重計分 | 改用 EV_SERVE(12) 同步出餐，`OrderManager.consumeOrder()` 只移除不計分 |
+| 10 | `Trash.js` | `require('../core/EventBus')` 在方法內部（壞習慣） | 移到檔案頂部 |
+| 11 | `HUD.js` | `_onOrderTick` 用字串分割更新倒數，食材名含雙空格時會壞 | `_orderNodes` 改存 `{ node, recipe }` struct，直接重組字串 |
 
 ---
 
@@ -214,38 +219,33 @@ AnimationController 於 start() 預先快取全部 16 個 SpriteFrame。
 - 雙人按鍵輸入（InputHandler，P1 & P2 統一 WASD+F）
 - 格子移動狀態機（PlayerController）
 - Sprite Sheet 動畫（AnimationController，含 SpriteFrame 預快取）
-- 站台基礎互動（StationBase：放置 / 拾取）
-- 站台 Prefab（Stove / FoodBox / Serving / Trash）
-- **Google 帳號登入**（Firebase Auth，顯示頭像與暱稱）
+- 站台基礎互動（StationBase）
+- 站台子類別：**FoodBox**（無限產生食材）、**Stove**（烹飪倒數 8s）、**CuttingBoard**（切割倒數 4s）、**ServingCounter**（訂單配對）、**Trash**（銷毀食材）
+- **訂單系統**（OrderManager：隨機產生、倒數、完成比對）
+- **HUD**（計時器 / 分數 / 訂單列表）
+- **結果畫面**（ResultScreen：再玩一次 / 回主選單）
+- **Google 帳號登入**（Firebase Auth，顯示暱稱）
 - **等待室玩家名字顯示**（Host / Guest 雙方可見彼此暱稱）
-- **Host 控制開始**（Guest 加入後由 Host 按下開始才進入遊戲）
-- Lobby UI（MenuManager：建立房間 / 加入房間）
-- 網路連線（NetworkManager：Photon Cloud，房間代碼系統）
-- 網路同步（GameNetworkBridge：移動 + 站台互動雙向同步）
-- 背景（程式生成，完全對齊 80px 格子）
+- **Host 手動控制開始**（Guest 加入後由 Host 按下開始）
+- 網路連線（NetworkManager：Photon Cloud）
+- 網路同步（GameNetworkBridge：移動 EV10 / 站台 EV11 / 出餐 EV12）
 
 ### 🚧 待實作
-- **站台子類別**：FoodBox（無限產生食材）、CuttingBoard（切割倒數）、Stove（烹飪倒數）、ServingCounter（對比訂單）、TrashCan（銷毀食材）
-- **食材系統**：Item prefab、食材種類定義（ItemData）
-- **訂單系統**：OrderManager（隨機生成訂單、倒數、完成對比）
-- **HUD UI**：分數顯示、計時器、訂單列表
-- **結果場景**：Result 場景（顯示最終分數）
-- **多張地圖**：蘇記、漢城、水木、風雲地圖
-- **Player2 Prefab**：white_guy 的玩家 prefab
-- **CuttingBoard Prefab**：補上缺漏的砧板 prefab
+- **Player2 Prefab**：white_guy 的玩家 prefab（目前只有 Player1）
+- **CuttingBoard Prefab**：場景裡的砧板 prefab
+- **食材圖片**：目前 FoodBox 產生的 item node 是空 Sprite，需換正式圖片
+- **多張地圖**：蘇記、漢城、水木、風雲地圖場景
 - **斷線處理**：遊戲中斷線時顯示提示並返回 Lobby
+- **訂單同步**：兩端 OrderManager 各自獨立產生（random seed 不同），訂單列表可能不一致
 
 ---
 
-## 五人分工建議
+## 已知設計限制
 
-| 人 | 模組 | 任務 |
-|---|---|---|
-| P1 | `station/` 子類別 | FoodBox、Stove（烹飪倒數）、CuttingBoard（切割倒數） |
-| P2 | `item/`、Item prefab | ItemData 定義、食材種類、可拾取 Item 節點 |
-| P3 | `ui/`、OrderManager | HUD（分數/計時/訂單欄）、OrderManager（訂單生成與比對） |
-| P4 | 關卡內容 | 各地圖 prefab 擺設、訂單食譜設計 |
-| P5 | 整合測試、斷線處理 | 雙端同步驗證、遊戲中斷線返回 Lobby |
+| 項目 | 說明 |
+|---|---|
+| 訂單列表不同步 | 兩端 OrderManager 各自 `Math.random()` 產生訂單，順序可能不同。出餐時 `consumeOrder(recipe)` 只找第一筆符合的，實際消掉的可能不是同一筆。目前可運作但 HUD 顯示可能有差異。 |
+| EV_SERVE 的 order:completed id=-1 | 遠端出餐時 EventBus emit 的 id 為 -1，HUD 的 `_removeOrderCard(-1)` 找不到節點（因為 `consumeOrder` 已刪除，但 HUD 卡片的 id 是本地的）。目前 HUD 卡片需等到 `order:expired` 或本地下次 tick 才會消失。 |
 
 ---
 
@@ -258,9 +258,11 @@ AnimationController 於 start() 預先快取全部 16 個 SpriteFrame。
 
 ### 驗證清單
 
-| 測試項目 | 預期 |
+| 測試項目 | 預期 Console 輸出 |
 |---|---|
-| Host 建房後 Guest 加入 | `start_game` 在兩端各只觸發一次 |
-| P1 移動後，P2 畫面上的 P1 有動 | `onEvent code=10` 有收到 |
-| P1 對 Station 互動，P2 端 Station 狀態改變 | `onEvent code=11` 有收到 |
-| 關閉 P2 分頁 | P1 端看到 `player_disconnected`，回到主選單 |
+| Host 建房後 Guest 加入 | 兩端各只出現一次 `start_game` |
+| P1 移動 | 對端出現 `onEvent code=10` |
+| P1 拿食材 (FoodBox) | 對端出現 `onEvent code=11 action=pickup` |
+| P1 放食材到 Stove | 對端出現 `onEvent code=11 action=place`，Stove 開始倒數 |
+| P1 出餐成功 | 對端出現 `onEvent code=12`，分數增加 |
+| 關閉 P2 分頁 | P1 端看到 `player_disconnected` |

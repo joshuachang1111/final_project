@@ -6,11 +6,14 @@
  * 配對失敗 → 物品還給玩家，印出 log
  *
  * EventBus：
- *   繼承 StationBase 的 station:place
+ *   emit  station:place   { stationType, col, row, item }   （Bug 3 fix：補回遺漏的 emit）
+ *   emit  station:serve   { col, row, item, success }       （供 GameNetworkBridge 同步出餐結果）
+ *   繼承  StationBase 的其他行為
  */
 
-const StationBase    = require('./StationBase');
-const OrderManager   = require('./OrderManager');
+const StationBase  = require('./StationBase');
+const OrderManager = require('./OrderManager');
+const EventBus     = require('../core/EventBus');
 
 const ServingCounter = cc.Class({
     extends: StationBase,
@@ -26,19 +29,35 @@ const ServingCounter = cc.Class({
 
         cc.log('[ServingCounter] 嘗試出餐:', item.name);
 
+        // Bug 3 fix: emit station:place so GameNetworkBridge can observe
+        // (Bridge will filter SERVING type and use station:serve for actual sync)
+        EventBus.emit('station:place', {
+            stationType: this.stationType,
+            col:         this.gridCol,
+            row:         this.gridRow,
+            item:        item.name,
+        });
+
         const success = OrderManager.instance
             ? OrderManager.instance.completeOrder(item.name)
             : false;
 
         if (success) {
-            // 配對成功：銷毀食物 node
             cc.log('[ServingCounter] 出餐成功！');
             item.destroy();
         } else {
-            // 配對失敗：歸還給玩家
             cc.log('[ServingCounter] 沒有符合的訂單，退回食物');
             player.pickUp(item);
         }
+
+        // Bug 3 fix: dedicated serve event so Bridge can sync the result
+        // without replaying the full interaction (which would double-score)
+        EventBus.emit('station:serve', {
+            col:     this.gridCol,
+            row:     this.gridRow,
+            item:    item.name,
+            success: success,
+        });
     },
 
     /** 出餐口不提供拿取 */

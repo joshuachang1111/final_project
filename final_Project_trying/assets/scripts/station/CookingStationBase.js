@@ -5,12 +5,11 @@
  * 流程：
  *   1. 玩家放上食材 (_onPlace)  → 開始倒數
  *   2. 倒數中           → 不能放、不能拿
- *   3. 時間到           → emit station:cook_done，node 名稱加上 resultPrefix
+ *   3. 時間到           → emit station:cook_done，node 名稱去掉 noncooked_ 前綴
  *   4. 完成後           → 玩家可空手來拿 (_onPickup)
  *
  * 子類別需設定：
- *   this.cookTime     — 烹飪秒數（Inspector）
- *   this.resultPrefix — 完成品前綴，例如 'cooked_' 或 'chopped_'
+ *   this.cookTime  — 烹飪秒數（Inspector）
  *
  * EventBus：
  *   emit  station:cook_done  { stationType, col, row, result }
@@ -30,11 +29,9 @@ const CookingStationBase = cc.Class({
             type: cc.Integer,
             tooltip: '烹飪倒數秒數',
         },
-        /** 完成品名稱前綴，子類別設定預設值 */
-        resultPrefix: {
-            default: 'cooked_',
-            tooltip: '完成品名稱前綴，例如 cooked_ 或 chopped_',
-        },
+        // Bug 1 fix: resultPrefix removed — it was never used.
+        // _onCookDone strips the 'noncooked_' prefix to produce the final name,
+        // which matches OrderManager RECIPES directly (e.g. 'burger', 'salad').
     },
 
     // ─────────────────────────────────────────────
@@ -42,9 +39,16 @@ const CookingStationBase = cc.Class({
     // ─────────────────────────────────────────────
 
     onLoad() {
-        this._super();          // 呼叫 StationBase.onLoad()
-        this._cooking  = false; // 是否正在烹飪
-        this._isDone   = false; // 是否已完成（等待拿取）
+        this._super();
+        this._cooking = false;
+        this._isDone  = false;
+    },
+
+    // Bug 2 fix: cancel any in-flight cooking timer when node is destroyed
+    // (prevents _onCookDone firing on a destroyed component after scene reload)
+    onDestroy() {
+        this.unscheduleAllCallbacks();
+        this._super();   // StationBase.onDestroy → GridSystem.setBlocked(false)
     },
 
     // ─────────────────────────────────────────────
@@ -62,7 +66,6 @@ const CookingStationBase = cc.Class({
             return;
         }
 
-        // 從玩家手上拿走食材，放到站台上
         const item     = player.dropItem();
         this._heldItem = item;
 
@@ -95,7 +98,6 @@ const CookingStationBase = cc.Class({
             return;
         }
 
-        // 完成品交給玩家
         player.pickUp(this._heldItem);
         this._heldItem = null;
         this._isDone   = false;
@@ -114,20 +116,20 @@ const CookingStationBase = cc.Class({
     _onCookDone() {
         if (!this._heldItem) return;
 
-        // 把 node 名稱改成完成品名稱：去掉 noncooked_ 前綴
-        const resultName      = this._heldItem.name.replace('noncooked_', '');
-        this._heldItem.name   = resultName;
+        // Bug 1 fix: simply strip the 'noncooked_' prefix.
+        // Result name matches OrderManager RECIPES (e.g. 'burger').
+        this._heldItem.name = this._heldItem.name.replace('noncooked_', '');
 
         this._cooking = false;
         this._isDone  = true;
 
-        cc.log('[CookingStation] 烹飪完成:', resultName);
+        cc.log('[CookingStation] 烹飪完成:', this._heldItem.name);
 
         EventBus.emit('station:cook_done', {
             stationType: this.stationType,
             col:         this.gridCol,
             row:         this.gridRow,
-            result:      resultName,
+            result:      this._heldItem.name,
         });
     },
 });
