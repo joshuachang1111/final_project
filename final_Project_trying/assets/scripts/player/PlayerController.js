@@ -95,9 +95,10 @@ const PlayerController = cc.Class({
         this._carryState    = CarryState.EMPTY;
         this._heldItem      = null;   // 拿著的 cc.Node
 
-        // 對齊到起始格子（2.5D：pos 為 cc.Vec3，y=0 地面）
-        const pos = GridSystem.toWorld3D(this._col, this._row);
-        this.node.setPosition(pos);
+        // 對齊到起始格子
+        const pos = GridSystem.toWorld(this._col, this._row);
+        this.node.x = pos.x;
+        this.node.y = pos.y;
 
         // 向 GameManager 登記自己
         if (GameManager.instance) {
@@ -158,10 +159,10 @@ const PlayerController = cc.Class({
         this._col = targetCol;
         this._row = targetRow;
 
-        const pos = GridSystem.toWorld3D(targetCol, targetRow);
+        const pos = GridSystem.toWorld(targetCol, targetRow);
 
         cc.tween(this.node)
-            .to(this.moveTime, { x: pos.x, z: pos.z }, { easing: 'quadOut' })
+            .to(this.moveTime, { x: pos.x, y: pos.y }, { easing: 'quadOut' })
             .call(() => {
                 this._movementState = MovementState.IDLE;
             })
@@ -209,7 +210,7 @@ const PlayerController = cc.Class({
         // 將 item 節點掛到玩家節點下方，顯示在頭上
         itemNode.parent = this.node;
         itemNode.x = 0;
-        itemNode.y = GridSystem.CELL_SIZE * 0.6;
+        itemNode.y = GridSystem.CELL_H * 0.6;   // 懸浮在頭頂：約 34px
 
         EventBus.emit('player:pickup', {
             playerId: this.playerId,
@@ -249,9 +250,9 @@ const PlayerController = cc.Class({
                 break;
             }
         }
-        const pos = GridSystem.toWorld3D(col, row);
+        const pos = GridSystem.toWorld(col, row);
         cc.tween(this.node)
-            .to(0.1, { x: pos.x, z: pos.z })
+            .to(0.1, { x: pos.x, y: pos.y })
             .start();
     },
 

@@ -70,9 +70,12 @@ const StationBase = cc.Class({
     // ─────────────────────────────────────────────
 
     onLoad() {
-        // 對齊到格子（2.5D：pos 為 cc.Vec3，y=0 地面）
-        const pos = GridSystem.toWorld3D(this.gridCol, this.gridRow);
-        this.node.setPosition(pos);
+        // 對齊到格子中心
+        const pos = GridSystem.toWorld(this.gridCol, this.gridRow);
+        this.node.x      = pos.x;
+        this.node.y      = pos.y;
+        this.node.width  = GridSystem.CELL_W;
+        this.node.height = GridSystem.CELL_H;
 
         // 登記為不可通行
         GridSystem.setBlocked(this.gridCol, this.gridRow, true);

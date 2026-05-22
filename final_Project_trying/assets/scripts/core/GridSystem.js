@@ -2,66 +2,74 @@
  * GridSystem
  * 負責世界座標 ↔ 格子座標的轉換，以及格子的通行狀態管理。
  *
- * 2.5D 座標系：
- *   X 軸 → 水平左右（不變）
- *   Y 軸 → 垂直高度，地面固定為 0
- *   Z 軸 → 前後深度（row 增大 → Z 增大 → 靠近相機）
+ * ── 2.5D 俯視背景座標系 ──────────────────────────────────
  *
- * Grid : 12 cols x 8 rows, 每格 80 x 80 px
- * 範圍 : X ∈ [-480, 480]，Z ∈ [-320, 320]
+ *  背景圖（960×640 stretch）內，木框內側可走地板範圍：
+ *    螢幕 x : 93 ~ 850 px  (寬 757 px)
+ *    螢幕 y : 122 ~ 569 px (高 447 px)
+ *
+ *  格子設定：
+ *    12 欄（col）× 8 列（row）
+ *    CELL_W = 63 px（水平，等同場景 X 方向每格寬度）
+ *    CELL_H = 56 px（縱向，因等角透視壓縮，比 CELL_W 小）
+ *
+ *  CC 世界座標（Canvas 中心 = 0,0，Y 軸向上為正）：
+ *    ORIGIN_X = -387  (木框左內緣，螢幕 93 px = 93-480)
+ *    ORIGIN_Y =  198  (木框上內緣，螢幕 122 px = 320-122)
+ *
+ *  格子中心世界座標公式：
+ *    x = ORIGIN_X + col × CELL_W + CELL_W / 2
+ *    y = ORIGIN_Y - row × CELL_H - CELL_H / 2
+ *
+ *  範例（格子中心）：
+ *    (0,0)   → world(-355.5,  170)  螢幕(124, 150)  左上角
+ *    (11,7)  → world( 337.5, -222)  螢幕(817, 542)  右下角
+ *    (6,3)   → world( -10.5,   58)  螢幕(469, 262)  接近中心
  */
 
-const CELL_SIZE = 80;
-const COLS      = 12;
-const ROWS      = 8;
+const CELL_W = 63;   // 每格水平寬度（螢幕像素）
+const CELL_H = 56;   // 每格縱向高度（螢幕像素，等角壓縮）
+const CELL_SIZE = 60; // 平均格子大小，供舊程式碼參考
+const COLS = 12;
+const ROWS = 8;
 
-// 世界座標原點（格子 (0,0) 的左上角）
-const ORIGIN_X = -(COLS * CELL_SIZE) / 2;   // -480
-const ORIGIN_Y =  (ROWS * CELL_SIZE) / 2;   //  320（保留給 2D alias）
-const ORIGIN_Z = -(ROWS * CELL_SIZE) / 2;   // -320（row 0 最遠端）
+// 木框內側左上角在世界座標中的位置
+const ORIGIN_X = -387;  // 螢幕 93px → 93 - 480 = -387
+const ORIGIN_Y =  198;  // 螢幕 122px → 320 - 122 = 198
 
 // 使用 "col,row" 字串作為 key，儲存不可通行的格子
 const _blocked = new Set();
 
 const GridSystem = {
+    CELL_W,
+    CELL_H,
     CELL_SIZE,
     COLS,
     ROWS,
 
     /**
-     * 格子座標 → 3D 世界座標（格子中心點，Y=0 地面）
+     * 格子座標 → 世界座標（格子中心點）
      * @param {number} col
      * @param {number} row
-     * @returns {cc.Vec3}
-     */
-    toWorld3D(col, row) {
-        return new cc.Vec3(
-            ORIGIN_X + col * CELL_SIZE + CELL_SIZE / 2,   // X：水平
-            0,                                             // Y：地面
-            ORIGIN_Z + row * CELL_SIZE + CELL_SIZE / 2,   // Z：深度
-        );
-    },
-
-    /**
-     * 格子座標 → 世界座標（向後相容 alias，呼叫 toWorld3D）
-     * @param {number} col
-     * @param {number} row
-     * @returns {cc.Vec3}
+     * @returns {{ x: number, y: number }}
      */
     toWorld(col, row) {
-        return this.toWorld3D(col, row);
+        return {
+            x: ORIGIN_X + col * CELL_W + CELL_W / 2,
+            y: ORIGIN_Y - row * CELL_H - CELL_H / 2,
+        };
     },
 
     /**
-     * 3D 世界座標 → 格子座標（無條件捨去）
+     * 世界座標 → 格子座標（無條件捨去）
      * @param {number} worldX
-     * @param {number} worldZ
+     * @param {number} worldY
      * @returns {{ col: number, row: number }}
      */
-    toGrid(worldX, worldZ) {
+    toGrid(worldX, worldY) {
         return {
-            col: Math.floor((worldX - ORIGIN_X) / CELL_SIZE),
-            row: Math.floor((worldZ - ORIGIN_Z) / CELL_SIZE),
+            col: Math.floor((worldX - ORIGIN_X) / CELL_W),
+            row: Math.floor((ORIGIN_Y - worldY) / CELL_H),
         };
     },
 

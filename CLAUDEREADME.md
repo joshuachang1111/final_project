@@ -31,33 +31,45 @@
 
 ---
 
-## 格子系統（2.5D）
+## 格子系統
 
 ```
-Canvas：960 × 640 px
-格子：12 欄（col）× 8 列（row），每格 80 × 80 px
-座標軸：X=左右，Y=高度（固定 0），Z=前後深度
+Canvas：960 × 640 px（背景 stretch 填滿）
+格子：12 欄（col）× 8 列（row）
+背景地板（木框內側）：螢幕 93~850 x，122~569 y
 
-toWorld3D(col, row) → cc.Vec3:
-  x = -480 + col * 80 + 40
-  y = 0
-  z = -320 + row * 80 + 40
+CELL_W = 63 px  水平每格寬（X 方向）
+CELL_H = 56 px  縱向每格高（Y 方向，等角俯視透視壓縮）
+ORIGIN_X = -387  木框左內緣世界 X（螢幕 93 = 93-480）
+ORIGIN_Y =  198  木框上內緣世界 Y（螢幕 122 = 320-122）
 
-toGrid(worldX, worldZ):
-  col = floor((worldX + 480) / 80)
-  row = floor((worldZ + 320) / 80)
+toWorld(col, row) → { x, y }
+  x = -387 + col × 63 + 31.5
+  y =  198 - row × 56 - 28
 
-範例：
-  (0,0)   → cc.Vec3(-440, 0, -280)  左上角（最遠）
-  (11,7)  → cc.Vec3( 440, 0,  280)  右下角（最近）
-  (6,3)   → cc.Vec3(  40, 0,  -40)  接近中心
+toGrid(worldX, worldY) → { col, row }
+  col = floor((worldX + 387) / 63)
+  row = floor((198 - worldY)  / 56)
 
-toWorld(col, row) 保留為 alias，同等呼叫 toWorld3D。
+範例（格子中心）：
+  (0,0)   → world(-355.5,  170)  螢幕(124, 150)  左上角
+  (11,7)  → world( 337.5, -222)  螢幕(817, 542)  右下角
+  (6,3)   → world( -10.5,   58)  螢幕(469, 262)  接近中心
 ```
 
-- Station 在 Inspector 設 `gridCol` / `gridRow`，`StationBase.onLoad()` 自動 `setPosition(pos)` 並標記為 blocked
-- PlayerController `_tryMove` 的 tween 目標為 `{ x, z }`，y 固定不動
-- item node 懸浮在玩家頭頂：`itemNode.y = CELL_SIZE * 0.6`（y 才是高度）
+- Station 在 Inspector 設 `gridCol` / `gridRow`，`StationBase.onLoad()` 自動對齊並設 `node.width=CELL_W, height=CELL_H`
+- PlayerController `_tryMove` 的 tween 目標為 `{ x: pos.x, y: pos.y }`
+- item node 懸浮在玩家頭頂：`itemNode.y = GridSystem.CELL_H * 0.6` ≈ 34px
+
+### 格子設計慣例（配合這張地圖）
+
+| 區域 | col 範圍 | row 範圍 | 用途 |
+|---|---|---|---|
+| 上側工作台 | 0–11 | 0–1 | 站台放置區（靠近後牆）|
+| 下側工作台 | 0–11 | 6–7 | 站台放置區（靠近前）|
+| 左側工作台 | 0–1  | 0–7 | 站台放置區（靠左牆）|
+| 右側工作台 | 10–11 | 0–7 | 站台放置區（靠右牆）|
+| 可走通道   | 2–9  | 2–5 | 玩家行走區（中央 8×4）|
 
 ---
 
