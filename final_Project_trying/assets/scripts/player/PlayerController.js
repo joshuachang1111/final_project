@@ -94,6 +94,9 @@ const PlayerController = cc.Class({
         this._vx = 0;
         this._vy = 0;
 
+        // 移動狀態（backing field，避免 cc.Class getter 型別警告）
+        this._isMoving = false;
+
         // 狀態
         this._facing     = Direction.DOWN;
         this._carryState = CarryState.EMPTY;
@@ -157,6 +160,7 @@ const PlayerController = cc.Class({
 
         this._vx = vx * SPEED;
         this._vy = vy * SPEED;
+        this._isMoving = (this._vx !== 0 || this._vy !== 0);
 
         // 更新朝向（垂直優先）
         if      (up)    this._facing = Direction.UP;
@@ -363,17 +367,17 @@ const PlayerController = cc.Class({
     // ─────────────────────────────────────────────
 
     /** 動態由世界座標算出目前所在格子欄 */
-    get col()     { return GridSystem.toGrid(this._px, this._py).col; },
+    get col()         { return GridSystem.toGrid(this._px, this._py).col; },
     /** 動態由世界座標算出目前所在格子列 */
-    get row()     { return GridSystem.toGrid(this._px, this._py).row; },
-    get facing()  { return this._facing; },
-    /** true 代表目前有速度（動畫控制器用） */
-    get isMoving() { return this._vx !== 0 || this._vy !== 0; },
-    /** 向後相容（AnimationController 可改用 isMoving） */
-    get movementState() { return this.isMoving ? 'moving' : 'idle'; },
-    get carryState()    { return this._carryState; },
-    get heldItem()      { return this._heldItem; },
-    isCarrying()        { return this._carryState === CarryState.HOLDING; },
+    get row()         { return GridSystem.toGrid(this._px, this._py).row; },
+    get facing()      { return this._facing; },
+    get carryState()  { return this._carryState; },
+    get heldItem()    { return this._heldItem; },
+    /** 目前是否在移動中（method，避免 cc.Class getter 型別警告） */
+    isMoving()        { return this._isMoving; },
+    /** 向後相容 */
+    movementState()   { return this._isMoving ? 'moving' : 'idle'; },
+    isCarrying()      { return this._carryState === CarryState.HOLDING; },
 });
 
 module.exports = PlayerController;
