@@ -34,31 +34,35 @@
 ## 格子系統
 
 ```
-Canvas：960 × 640 px（背景 stretch 填滿）
+Canvas：1440 × 720 px（背景圖 2880×1440 ×0.5 均勻縮放，不失真）
 格子：12 欄（col）× 8 列（row）
-背景地板（木框內側）：螢幕 93~850 x，122~569 y
 
-CELL_W = 63 px  水平每格寬（X 方向）
-CELL_H = 56 px  縱向每格高（Y 方向，等角俯視透視壓縮）
-ORIGIN_X = -387  木框左內緣世界 X（螢幕 93 = 93-480）
-ORIGIN_Y =  198  木框上內緣世界 Y（螢幕 122 = 320-122）
+地板是透視梯形（下寬上窄），且垂直間距不均勻（上密下疏）。
+用實測世界座標查找表儲存，精確對齊背景磁磚。
 
-toWorld(col, row) → { x, y }
-  x = -387 + col × 63 + 31.5
-  y =  198 - row × 56 - 28
+ROW_Y      = [187, 149, 102, 53, -5, -62, -130, -201, -273]  ← 9條水平邊界
+ROW_LEFT_X = [-349,-356,-371,-384,-400,-416,-434,-455,-474]  ← 左緣（實測）
+ROW_RIGHT_X= [ 378, 388, 401, 414, 430, 445, 463, 483, 502] ← 右緣（插值）
 
-toGrid(worldX, worldY) → { col, row }
-  col = floor((worldX + 387) / 63)
-  row = floor((198 - worldY)  / 56)
+各列高度（上密下疏）：38/47/49/58/57/68/71/72 px
+各列寬度（上窄下寬）：727→976 px（/12 = 60.6→81.3 per cell）
 
-範例（格子中心）：
-  (0,0)   → world(-355.5,  170)  螢幕(124, 150)  左上角
-  (11,7)  → world( 337.5, -222)  螢幕(817, 542)  右下角
-  (6,3)   → world( -10.5,   58)  螢幕(469, 262)  接近中心
+CELL_H ≈ 57.5（平均，各列實際不同）
+CELL_W ≈ 71  （平均，各列實際不同）
+
+toWorld(col, row) → 用 ROW_LEFT_X[row] 和 ROW_RIGHT_X[row] 算格子中心
+toGrid(worldX, worldY) → 先用 ROW_Y 定 row，再用 cellW 定 col
+
+四角世界座標：
+  左上(-349, 187)  右上(378, 187)
+  左下(-477,-273)  右下(502,-272)
 ```
 
-- Station 在 Inspector 設 `gridCol` / `gridRow`，`StationBase.onLoad()` 自動對齊並設 `node.width=CELL_W, height=CELL_H`
-- PlayerController `_tryMove` 的 tween 目標為 `{ x: pos.x, y: pos.y }`
+- Station 在 Inspector 設 `gridCol` / `gridRow`，`StationBase.onLoad()` 自動對齊
+- Station 寬度用 `GridSystem.getCellWidthAtRow(row)` 取得透視正確值
+- PlayerController 速度 SPEED=150 px/s，碰撞盒 PLAYER_HALF_W=20, PLAYER_HALF_H=14
+- 玩家 X 邊界用 `GridSystem.getFloorXBoundsAtWorldY(py)` 做透視插值
+- 站台碰撞用 `GridSystem.getCellBounds(col, row)` 取精確 AABB
 - item node 懸浮在玩家頭頂：`itemNode.y = GridSystem.CELL_H * 0.6` ≈ 34px
 
 ### 格子設計慣例（配合這張地圖）
@@ -144,21 +148,37 @@ InputHandler → PlayerController → AnimationController
 ## 目前進度（截至最新 commit）
 
 ### ✅ 完成
-- 格子移動、動畫、碰撞
+- **自由移動**：velocity-based 連續行走（SPEED=150 px/s），對角線 ÷√2，AABB 分軸碰撞 + 沿牆滑動
+- **透視格子系統**：ROW_Y/ROW_LEFT_X/ROW_RIGHT_X 查找表，精確對齊背景磁磚（上密下疏梯形）
+- Canvas 1440×720，背景圖 2880×1440 ×0.5 均勻縮放
 - 站台：FoodBox、Stove(8s)、CuttingBoard(4s)、ServingCounter、Trash
 - 訂單系統（OrderManager：隨機產生、15s 間距、最多 3 筆、60s 倒數）
 - HUD（計時器、分數、訂單列表）
 - 結果畫面（ResultScreen）
 - Google 登入 + 暱稱設定
 - 等待室（Host/Guest 名字顯示）+ Host 手動開始
-- 網路同步（移動 EV10、站台 EV11、出餐 EV12）
+- 網路同步（移動 EV10 用 {x,y,facing}、站台 EV11、出餐 EV12）
+- GridDebugger 開發工具（透視梯形格子視覺化）
+- **3D 人物 Sprite**：Kenney Blocky Characters → Blender 等角渲染 → 4 方向靜態 Sprite Sheet（256×1024）
+- **AnimationController 重寫**：4 方向 Sprite 切換 + 走路彈跳縮放動畫（BOUNCE_SCALE=1.1）
+- cc.Class getter 改為一般方法（避免 Cocos Creator 2.4.x 序列化報錯）
 
 ### 🚧 尚缺
-- Player2 prefab（white_guy）
+- Player2 prefab（white_guy）—— 需用同流程再渲染一個角色
 - CuttingBoard prefab
 - 食材 Sprite 圖片（目前是空 Sprite 佔位）
 - 多張地圖
 - 斷線處理（遊戲中）
+
+### Sprite Sheet 製作流程（備忘）
+```
+1. Kenney Blocky Characters → Models/GLB format/character-a.glb
+2. Blender 3.6：匯入 GLB，執行 ~/Desktop/render_character.py
+   → 輸出 ~/Desktop/render_output/{down,up,left,right}.png
+3. python3 ~/Desktop/make_spritesheet.py
+   → 輸出 ~/Desktop/render_output/player1_sheet.png（256×1024）
+4. 放入 assets/img/，在 Player 節點 Sprite Frame 換上
+```
 
 ---
 

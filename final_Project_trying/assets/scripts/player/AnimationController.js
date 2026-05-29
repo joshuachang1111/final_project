@@ -24,8 +24,8 @@ const BOUNCE_HALF   = 0.12;   // 每半個週期的秒數（總週期 0.24s）
 const DIR_TO_ROW = {
     down:  0,
     up:    1,
-    left:  2,
-    right: 3,
+    left:  3,   // 渲染時 left/right 互換，對調修正
+    right: 2,
 };
 
 const PlayerController = require('./PlayerController');
@@ -76,14 +76,15 @@ const AnimationController = cc.Class({
         if (!this._player || !this._frames) return;
 
         // ── 1. 切換方向 Sprite ──────────────────────────
-        const row = DIR_TO_ROW[this._player.facing && this._player.facing.name] ?? 0;
+        const f   = this._player.facing();
+        const row = DIR_TO_ROW[f && f.name] ?? 0;
         if (row !== this._lastRow) {
             this._showRow(row);
             this._lastRow = row;
         }
 
         // ── 2. 彈跳縮放動畫 ──────────────────────────────
-        const isMoving = this._player.movementState === 'moving';
+        const isMoving = this._player.movementState() === 'moving';
 
         if (isMoving) {
             this._bounceTimer += dt;
