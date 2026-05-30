@@ -1,12 +1,31 @@
-const FRAME_SIZE = 80;
-const FRAME_COLS = 4;
-const FRAME_ROWS = 4;
+/**
+ * AnimationController  (cc.Component)
+ * 搭配 4 方向靜態 Sprite Sheet 使用。
+ *
+ * Sprite Sheet 格式：
+ *   256 × 1024 px（1 欄 × 4 列，每格 256×256）
+ *   row 0 = down
+ *   row 1 = up
+ *   row 2 = left
+ *   row 3 = right
+ *
+ * 功能：
+ *  1. 依 facing 切換朝向 Sprite Frame
+ *  2. 移動中做 Y 軸彈跳縮放（走路感）
+ */
+
+const FRAME_W = 256;   // 每格寬度（px）
+const FRAME_H = 256;   // 每格高度（px）
+
+// 彈跳動畫參數
+const BOUNCE_SCALE  = 1.10;   // 彈跳時的最大 Y 縮放
+const BOUNCE_HALF   = 0.12;   // 每半個週期的秒數（總週期 0.24s）
 
 const DIR_TO_ROW = {
     down:  0,
     up:    1,
-    left:  2,
-    right: 3,
+    left:  3,   // 渲染時 left/right 互換，對調修正
+    right: 2,
 };
 
 const PlayerController = require('./PlayerController');
@@ -14,20 +33,15 @@ const PlayerController = require('./PlayerController');
 const AnimationController = cc.Class({
     extends: cc.Component,
 
-    properties: {
-        fps: {
-            default: 8,
-            tooltip: '移動動畫速率（幀/秒），建議 6~10',
-        },
-    },
-
     onLoad() {
-        this._sprite    = this.node.getComponent(cc.Sprite);
-        this._player    = null;
-        this._frameIdx  = 0;
-        this._frameTime = 0;
-        // Bug 6 fix: SpriteFrame cache — built once in start(), indexed [row][col]
-        this._frames    = null;
+        this._sprite      = this.node.getComponent(cc.Sprite);
+        this._player      = null;
+        this._frames      = null;
+        this._lastRow     = -1;
+
+        // 彈跳計時
+        this._bounceTimer = 0;
+        this._bounceUp    = true;   // 目前彈跳方向（true=往上縮放）
     },
 
     start() {
@@ -46,44 +60,56 @@ const AnimationController = cc.Class({
             return;
         }
 
-        // Bug 6 fix: pre-build all FRAME_ROWS × FRAME_COLS SpriteFrames once
+        // 預建 4 個方向的 SpriteFrame（每個方向佔一列）
         this._frames = [];
-        for (let row = 0; row < FRAME_ROWS; row++) {
-            this._frames[row] = [];
-            for (let col = 0; col < FRAME_COLS; col++) {
-                this._frames[row][col] = new cc.SpriteFrame(
-                    texture,
-                    new cc.Rect(col * FRAME_SIZE, row * FRAME_SIZE, FRAME_SIZE, FRAME_SIZE)
-                );
-            }
+        for (let row = 0; row < 4; row++) {
+            this._frames[row] = new cc.SpriteFrame(
+                texture,
+                new cc.Rect(0, row * FRAME_H, FRAME_W, FRAME_H)
+            );
         }
 
-        this._showFrame(0, 0);
+        this._showRow(0);
     },
 
     update(dt) {
         if (!this._player || !this._frames) return;
 
-        const isMoving = this._player.isMoving();
-        const row      = DIR_TO_ROW[this._player.facing && this._player.facing.name] ?? 0;
-
-        if (isMoving) {
-            this._frameTime += dt;
-            if (this._frameTime >= 1 / this.fps) {
-                this._frameTime = 0;
-                this._frameIdx  = (this._frameIdx + 1) % FRAME_COLS;
-            }
-        } else {
-            this._frameIdx  = 0;
-            this._frameTime = 0;
+        // ── 1. 切換方向 Sprite ──────────────────────────
+        const f   = this._player.facing();
+        const row = DIR_TO_ROW[f && f.name] ?? 0;
+        if (row !== this._lastRow) {
+            this._showRow(row);
+            this._lastRow = row;
         }
 
-        this._showFrame(row, this._frameIdx);
+        // ── 2. 彈跳縮放動畫 ──────────────────────────────
+        const isMoving = this._player.movementState() === 'moving';
+
+        if (isMoving) {
+            this._bounceTimer += dt;
+            if (this._bounceTimer >= BOUNCE_HALF) {
+                this._bounceTimer = 0;
+                this._bounceUp    = !this._bounceUp;
+            }
+            // 線性插值：0→BOUNCE_SCALE 或 BOUNCE_SCALE→1
+            const t   = this._bounceTimer / BOUNCE_HALF;
+            const scY = this._bounceUp
+                ? 1.0 + (BOUNCE_SCALE - 1.0) * t
+                : BOUNCE_SCALE - (BOUNCE_SCALE - 1.0) * t;
+            this.node.scaleY = scY;
+        } else {
+            // 閒置時，平滑回到 1.0
+            this.node.scaleY += (1.0 - this.node.scaleY) * 0.2;
+            this._bounceTimer = 0;
+            this._bounceUp    = true;
+        }
     },
 
-    // Bug 6 fix: just assign from cache — no object allocation
-    _showFrame(row, col) {
-        this._sprite.spriteFrame = this._frames[row][col];
+    _showRow(row) {
+        if (this._sprite && this._frames[row]) {
+            this._sprite.spriteFrame = this._frames[row];
+        }
     },
 });
 

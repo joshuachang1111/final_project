@@ -1,32 +1,17 @@
 /**
  * PlayerController  (cc.Component)
- * 掛在每個玩家的節點上。
  *
- * ── 移動系統（velocity-based，自由行走）──────────────────
+ * ── 移動（velocity-based，自由行走）───────────────────────
+ *  SPEED = 150 px/s，對角線 ÷√2
+ *  AABB 分軸碰撞：先解 X，再解 Y（沿牆滑動）
+ *  碰撞對象：GridSystem blocked 格子 + 地板邊界
  *
- *  玩家在世界座標 (x, y) 中連續移動，不鎖格。
- *  SPEED = 120 px/s，對角線時除以 √2（維持速度恆定）。
- *  碰撞採 AABB + 分軸解算（先解 X，再解 Y），支援沿牆滑動。
- *  碰撞對象：GridSystem.setBlocked(true) 的格子 + 地板邊界。
+ * ── 互動 ────────────────────────────────────────────────
+ *  按 INTERACT → 以當前世界座標算出格子 → 朝向前方格子查 Station
  *
- * ── 朝向 (Facing) ──────────────────────────────────────
- *  UP / DOWN / LEFT / RIGHT
- *  以最後一個「主要按鍵」決定，對角線時以垂直鍵優先。
- *
- * ── 互動流程 ───────────────────────────────────────────
- *  1. 玩家按下 INTERACT
- *  2. 由當前 world 座標算出所在格子 (col, row)
- *  3. 在朝向的前方格子查詢 StationBase
- *  4. 有 → 呼叫 station.onInteract(this)
- *
- * ── 持有狀態 (CarryState) ──────────────────────────────
- *  EMPTY   → 雙手空著
- *  HOLDING → 拿著一個 item node（顯示在頭頂）
- *
- * ── 網路同步（20 Hz）─────────────────────────────────
- *  每 NET_SEND_INTERVAL 秒 emit 一次 'player:moved'
- *  payload: { playerId, x, y, facing }
- *  遠端玩家收到後呼叫 applyNetworkState(x, y, facingName)
+ * ── 網路同步（20 Hz）─────────────────────────────────────
+ *  emit 'player:moved'：{ playerId, x, y, facing }
+ *  遠端呼叫 applyNetworkState(x, y, facingName)
  */
 
 const GridSystem   = require('../core/GridSystem');
@@ -34,23 +19,17 @@ const EventBus     = require('../core/EventBus');
 const GameManager  = require('../core/GameManager');
 const InputHandler = require('../input/InputHandler');
 
-// ── 移動常數 ────────────────────────────────────────────
-
-const SPEED             = 150;    // px/s
-const PLAYER_HALF_W     = 20;     // 碰撞半寬（玩家約 40px 寬）
-const PLAYER_HALF_H     = 14;     // 碰撞半高（玩家約 28px 高）
-const NET_SEND_INTERVAL = 0.05;   // 20 Hz 網路同步
-
-const INV_SQRT2 = 0.70710678;
-
-// ── 狀態 ────────────────────────────────────────────────
+const SPEED             = 150;
+const PLAYER_HALF_W     = 20;
+const PLAYER_HALF_H     = 14;
+const NET_SEND_INTERVAL = 0.05;   // 20 Hz
+const INV_SQRT2         = 0.70710678;
 
 const CarryState = {
     EMPTY:   'empty',
     HOLDING: 'holding',
 };
 
-/** 四個方向的格子偏移（互動用） */
 const Direction = {
     UP:    { dc:  0, dr: -1, name: 'up'    },
     DOWN:  { dc:  0, dr:  1, name: 'down'  },
@@ -58,74 +37,46 @@ const Direction = {
     RIGHT: { dc:  1, dr:  0, name: 'right' },
 };
 
-// ─────────────────────────────────────────────────────────
-
 const PlayerController = cc.Class({
     extends: cc.Component,
 
-    statics: {
-        CarryState,
-        Direction,
-    },
+    statics: { CarryState, Direction },
 
     properties: {
-        /** 1 = WASD + F，2 = 方向鍵 + Space */
         playerId: {
             default: 1,
             type: cc.Integer,
-            tooltip: '1 或 2，對應 InputHandler 的按鍵配置',
         },
-        /** 初始格子位置（用格子座標，onLoad 會轉成世界座標） */
-        startCol: { default: 1, type: cc.Integer },
+        startCol: { default: 5, type: cc.Integer },
         startRow: { default: 4, type: cc.Integer },
     },
 
-    // ─────────────────────────────────────────────
-    //  生命週期
-    // ─────────────────────────────────────────────
-
     onLoad() {
-        // 世界座標（連續值）
-        const pos = GridSystem.toWorld(this.startCol, this.startRow);
-        this._px = pos.x;
-        this._py = pos.y;
-
-        // 速度
-        this._vx = 0;
-        this._vy = 0;
-
-        // 移動狀態（backing field，避免 cc.Class getter 型別警告）
-        this._isMoving = false;
-
-        // 狀態
+        const pos    = GridSystem.toWorld(this.startCol, this.startRow);
+        this._px     = pos.x;
+        this._py     = pos.y;
+        this._vx     = 0;
+        this._vy     = 0;
+        this._isMoving   = false;
         this._facing     = Direction.DOWN;
         this._carryState = CarryState.EMPTY;
         this._heldItem   = null;
+        this._netTimer   = 0;
 
-        // 網路計時
-        this._netTimer = 0;
-
-        // 地板 Y 邊界（固定）；X 邊界因透視每幀由 getFloorXBoundsAtWorldY 算
         const b = GridSystem.floorBounds();
         this._floorTop    = b.top;
         this._floorBottom = b.bottom;
 
-        // 設定初始位置
         this.node.x = this._px;
         this.node.y = this._py;
 
-        // 向 GameManager 登記
         if (GameManager.instance) {
             GameManager.instance.registerPlayer(this.playerId, this);
         }
     },
 
-    // ─────────────────────────────────────────────
-    //  主迴圈
-    // ─────────────────────────────────────────────
-
     update(dt) {
-        // 多人模式：只有本地玩家才接受鍵盤輸入
+        // 多人模式：只有本地玩家接受鍵盤
         if (window._nmRole) {
             const localId = window._nmRole === 'host' ? 1 : 2;
             if (this.playerId !== localId) return;
@@ -135,22 +86,19 @@ const PlayerController = cc.Class({
         if (!input) return;
 
         const A  = InputHandler.Action;
-        const id = 1;   // 統一使用 binding 1（WASD）
+        const id = 1;
 
-        // ── 收集方向輸入 ─────────────────────────────
         const up    = input.isHeld(id, A.MOVE_UP);
         const down  = input.isHeld(id, A.MOVE_DOWN);
         const left  = input.isHeld(id, A.MOVE_LEFT);
         const right = input.isHeld(id, A.MOVE_RIGHT);
 
-        let vx = 0;
-        let vy = 0;
+        let vx = 0, vy = 0;
         if (left)  vx -= 1;
         if (right) vx += 1;
         if (up)    vy += 1;
         if (down)  vy -= 1;
 
-        // 對角線速度正規化（維持恆速 120 px/s）
         if (vx !== 0 && vy !== 0) {
             vx *= INV_SQRT2;
             vy *= INV_SQRT2;
@@ -166,15 +114,13 @@ const PlayerController = cc.Class({
         else if (left)  this._facing = Direction.LEFT;
         else if (right) this._facing = Direction.RIGHT;
 
-        // ── 移動 + 碰撞 ──────────────────────────────
         this._moveWithCollision(dt);
 
-        // ── 互動 ─────────────────────────────────────
         if (input.isJustPressed(id, A.INTERACT)) {
             this._tryInteract();
         }
 
-        // ── 網路同步 ─────────────────────────────────
+        // 網路同步
         this._netTimer += dt;
         if (this._netTimer >= NET_SEND_INTERVAL) {
             this._netTimer = 0;
@@ -187,25 +133,21 @@ const PlayerController = cc.Class({
         }
     },
 
-    // ─────────────────────────────────────────────
-    //  移動與碰撞
-    // ─────────────────────────────────────────────
+    // ── 移動與碰撞 ────────────────────────────────────────
 
     _moveWithCollision(dt) {
         const blocked = GridSystem.getBlockedCells();
 
-        // ── X 軸移動（透視梯形邊界，依當前 Y 計算）──────────
+        // X 軸
         let nx = this._px + this._vx * dt;
         const xb = GridSystem.getFloorXBoundsAtWorldY(this._py);
-        nx = Math.max(xb.left  + PLAYER_HALF_W,
-             Math.min(xb.right - PLAYER_HALF_W, nx));
+        nx = Math.max(xb.left + PLAYER_HALF_W, Math.min(xb.right - PLAYER_HALF_W, nx));
         nx = this._resolveAxisX(blocked, nx, this._py);
         this._px = nx;
 
-        // ── Y 軸移動 ─────────────────────────────────
+        // Y 軸
         let ny = this._py + this._vy * dt;
-        ny = Math.max(this._floorBottom + PLAYER_HALF_H,
-             Math.min(this._floorTop    - PLAYER_HALF_H, ny));
+        ny = Math.max(this._floorBottom + PLAYER_HALF_H, Math.min(this._floorTop - PLAYER_HALF_H, ny));
         ny = this._resolveAxisY(blocked, this._px, ny);
         this._py = ny;
 
@@ -213,28 +155,14 @@ const PlayerController = cc.Class({
         this.node.y = this._py;
     },
 
-    /**
-     * 解算 X 軸碰撞：固定 Y 為 py，嘗試將 X 移到 nx。
-     * 若與任何站台 AABB 重疊，將 nx 推到格子邊界外。
-     */
     _resolveAxisX(blocked, nx, py) {
         for (const { col, row } of blocked) {
             const b = GridSystem.getCellBounds(col, row);
-
-            // Y 方向無重疊 → 跳過
             if (py - PLAYER_HALF_H >= b.top)    continue;
             if (py + PLAYER_HALF_H <= b.bottom) continue;
-
-            // X 方向無重疊 → 跳過
-            if (nx + PLAYER_HALF_W <= b.left)  continue;
-            if (nx - PLAYER_HALF_W >= b.right) continue;
-
-            // 依舊位置決定推出方向
-            if (this._px <= b.cx) {
-                nx = b.left  - PLAYER_HALF_W;
-            } else {
-                nx = b.right + PLAYER_HALF_W;
-            }
+            if (nx + PLAYER_HALF_W <= b.left)   continue;
+            if (nx - PLAYER_HALF_W >= b.right)  continue;
+            nx = (this._px <= b.cx) ? b.left - PLAYER_HALF_W : b.right + PLAYER_HALF_W;
         }
         return nx;
     },
@@ -242,94 +170,49 @@ const PlayerController = cc.Class({
     _resolveAxisY(blocked, px, ny) {
         for (const { col, row } of blocked) {
             const b = GridSystem.getCellBounds(col, row);
-
-            // X 方向無重疊 → 跳過
-            if (px - PLAYER_HALF_W >= b.right) continue;
-            if (px + PLAYER_HALF_W <= b.left)  continue;
-
-            // Y 方向無重疊 → 跳過
+            if (px - PLAYER_HALF_W >= b.right)  continue;
+            if (px + PLAYER_HALF_W <= b.left)   continue;
             if (ny + PLAYER_HALF_H <= b.bottom) continue;
             if (ny - PLAYER_HALF_H >= b.top)    continue;
-
-            // 依舊位置決定推出方向
-            if (this._py <= b.cy) {
-                ny = b.bottom - PLAYER_HALF_H;
-            } else {
-                ny = b.top    + PLAYER_HALF_H;
-            }
+            ny = (this._py <= b.cy) ? b.bottom - PLAYER_HALF_H : b.top + PLAYER_HALF_H;
         }
         return ny;
     },
 
-    // ─────────────────────────────────────────────
-    //  互動
-    // ─────────────────────────────────────────────
+    // ── 互動 ──────────────────────────────────────────────
 
     _tryInteract() {
         const { col, row } = GridSystem.toGrid(this._px, this._py);
         const targetCol = col + this._facing.dc;
         const targetRow = row + this._facing.dr;
-
         if (!GameManager.instance) return;
         const station = GameManager.instance.getStation(targetCol, targetRow);
-        if (station) {
-            station.onInteract(this);
-        }
+        if (station) station.onInteract(this);
     },
 
-    // ─────────────────────────────────────────────
-    //  持有 API（由 StationBase 呼叫）
-    // ─────────────────────────────────────────────
+    // ── 持有 API ──────────────────────────────────────────
 
-    /**
-     * 從站台拿起 item node，顯示在頭上。
-     * @param {cc.Node} itemNode
-     */
     pickUp(itemNode) {
         if (this._carryState === CarryState.HOLDING) return;
-
         this._heldItem   = itemNode;
         this._carryState = CarryState.HOLDING;
-
-        itemNode.parent = this.node;
-        itemNode.x = 0;
-        itemNode.y = GridSystem.CELL_H * 0.6;   // 懸浮在頭頂 ≈ 34 px
-
-        EventBus.emit('player:pickup', {
-            playerId: this.playerId,
-            item:     itemNode.name,
-        });
+        itemNode.parent  = this.node;
+        itemNode.x       = 0;
+        itemNode.y       = GridSystem.CELL_H * 0.6;
+        EventBus.emit('player:pickup', { playerId: this.playerId, item: itemNode.name });
     },
 
-    /**
-     * 將持有的 item node 還給呼叫者。
-     * @returns {cc.Node|null}
-     */
     dropItem() {
         if (this._carryState === CarryState.EMPTY) return null;
-
         const item       = this._heldItem;
         this._heldItem   = null;
         this._carryState = CarryState.EMPTY;
-
-        EventBus.emit('player:drop', {
-            playerId: this.playerId,
-            item:     item ? item.name : null,
-        });
-
+        EventBus.emit('player:drop', { playerId: this.playerId, item: item ? item.name : null });
         return item;
     },
 
-    // ─────────────────────────────────────────────
-    //  網路同步（遠端玩家）
-    // ─────────────────────────────────────────────
+    // ── 網路同步（遠端玩家）──────────────────────────────
 
-    /**
-     * 收到遠端玩家位置更新時呼叫。
-     * @param {number} x     世界座標 X
-     * @param {number} y     世界座標 Y
-     * @param {string} facingName  'up' | 'down' | 'left' | 'right'
-     */
     applyNetworkState(x, y, facingName) {
         for (const key in Direction) {
             if (Direction[key].name === facingName) {
@@ -339,29 +222,18 @@ const PlayerController = cc.Class({
         }
         cc.tween(this.node)
             .to(0.08, { x, y })
-            .call(() => {
-                this._px = this.node.x;
-                this._py = this.node.y;
-            })
+            .call(() => { this._px = this.node.x; this._py = this.node.y; })
             .start();
     },
 
-    // ─────────────────────────────────────────────
-    //  Getter
-    // ─────────────────────────────────────────────
+    // ── Getter（用一般方法，避免 cc.Class getter 報錯）───
 
-    /** 動態由世界座標算出目前所在格子欄 */
-    get col()         { return GridSystem.toGrid(this._px, this._py).col; },
-    /** 動態由世界座標算出目前所在格子列 */
-    get row()         { return GridSystem.toGrid(this._px, this._py).row; },
-    get facing()      { return this._facing; },
-    get carryState()  { return this._carryState; },
-    get heldItem()    { return this._heldItem; },
-    /** 目前是否在移動中（method，避免 cc.Class getter 型別警告） */
-    isMoving()        { return this._isMoving; },
-    /** 向後相容 */
-    movementState()   { return this._isMoving ? 'moving' : 'idle'; },
-    isCarrying()      { return this._carryState === CarryState.HOLDING; },
+    facing()        { return this._facing;        },
+    movementState() { return this._isMoving ? 'moving' : 'idle'; },
+    carryState()    { return this._carryState;    },
+    heldItem()      { return this._heldItem;      },
+    isMoving()      { return this._isMoving;      },
+    isCarrying()    { return this._carryState === CarryState.HOLDING; },
 });
 
 module.exports = PlayerController;
