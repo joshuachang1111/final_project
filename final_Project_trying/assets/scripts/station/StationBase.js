@@ -63,6 +63,11 @@ const StationBase = cc.Class({
             default: 0,
             type: cc.Integer,
         },
+        /** 只調整工作台圖片大小，不影響格子碰撞與互動位置 */
+        visualScale: {
+            default: 1.45,
+            tooltip: '工作台圖片顯示倍率；碰撞仍固定為一格',
+        },
     },
 
     // ─────────────────────────────────────────────
@@ -76,6 +81,7 @@ const StationBase = cc.Class({
         this.node.y      = pos.y;
         this.node.width  = GridSystem.getCellWidthAtRow(this.gridRow);
         this.node.height = GridSystem.CELL_H;
+        this.node.scale  = this.visualScale;
 
         // 登記為不可通行
         GridSystem.setBlocked(this.gridCol, this.gridRow, true);

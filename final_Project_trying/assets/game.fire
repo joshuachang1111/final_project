@@ -598,7 +598,7 @@
       "__id__": 13
     },
     "_children": [],
-    "_active": false,
+    "_active": true,
     "_components": [
       {
         "__id__": 15
@@ -673,7 +673,7 @@
     "_srcBlendFactor": 770,
     "_dstBlendFactor": 771,
     "_spriteFrame": {
-      "__uuid__": "3f047ba0-86ef-4a67-9296-74967633e08f"
+      "__uuid__": "ac2b4d46-2037-497d-88d4-0964f563b13f"
     },
     "_type": 0,
     "_sizeMode": 0,
@@ -700,6 +700,7 @@
     "stationType": "STOVE",
     "gridCol": 3,
     "gridRow": 1,
+    "visualScale": 1.45,
     "cookTime": 8,
     "_id": "deD2/FBQ1EO5EvssQvAW5L"
   },
@@ -722,7 +723,7 @@
       "__id__": 13
     },
     "_children": [],
-    "_active": false,
+    "_active": true,
     "_components": [
       {
         "__id__": 19
@@ -797,7 +798,7 @@
     "_srcBlendFactor": 770,
     "_dstBlendFactor": 771,
     "_spriteFrame": {
-      "__uuid__": "d4e9b447-55f3-41fa-b3c2-feea68490d04"
+      "__uuid__": "791face9-8834-40ea-aff0-d26d20eb5870"
     },
     "_type": 0,
     "_sizeMode": 0,
@@ -821,9 +822,10 @@
       "__id__": 18
     },
     "_enabled": true,
-    "stationType": "STOVE",
+    "stationType": "FOOD_BOX",
     "gridCol": 1,
     "gridRow": 1,
+    "visualScale": 1.45,
     "foodType": "burger",
     "_id": "07IVVxznxBDq9i7WHLhKmf"
   },
@@ -846,7 +848,7 @@
       "__id__": 13
     },
     "_children": [],
-    "_active": false,
+    "_active": true,
     "_components": [
       {
         "__id__": 23
@@ -921,7 +923,7 @@
     "_srcBlendFactor": 770,
     "_dstBlendFactor": 771,
     "_spriteFrame": {
-      "__uuid__": "6f2627d3-c18d-460c-80f4-650e79beac11"
+      "__uuid__": "bd98381c-39e6-475b-aca2-d2b4e9304d1b"
     },
     "_type": 0,
     "_sizeMode": 0,
@@ -945,9 +947,10 @@
       "__id__": 22
     },
     "_enabled": true,
-    "stationType": "STOVE",
+    "stationType": "SERVING",
     "gridCol": 10,
     "gridRow": 1,
+    "visualScale": 1.45,
     "_id": "39Qe7mztlMsYf0GhYRDNu1"
   },
   {
@@ -969,7 +972,7 @@
       "__id__": 13
     },
     "_children": [],
-    "_active": false,
+    "_active": true,
     "_components": [
       {
         "__id__": 27
@@ -1044,7 +1047,7 @@
     "_srcBlendFactor": 770,
     "_dstBlendFactor": 771,
     "_spriteFrame": {
-      "__uuid__": "6433312e-eb31-4c0c-9349-81a8e937fd2e"
+      "__uuid__": "06dcc6dc-0add-483c-be36-8655604901d4"
     },
     "_type": 0,
     "_sizeMode": 0,
@@ -1068,9 +1071,10 @@
       "__id__": 26
     },
     "_enabled": true,
-    "stationType": "STOVE",
+    "stationType": "TRASH",
     "gridCol": 10,
     "gridRow": 6,
+    "visualScale": 1.45,
     "_id": "63jDrkr5dDnbkW3qdaByoU"
   },
   {
@@ -1092,7 +1096,7 @@
       "__id__": 13
     },
     "_children": [],
-    "_active": false,
+    "_active": true,
     "_components": [
       {
         "__id__": 31
@@ -1165,7 +1169,7 @@
     "_srcBlendFactor": 770,
     "_dstBlendFactor": 771,
     "_spriteFrame": {
-      "__uuid__": "55a1ff8a-d829-4e5e-81fb-4b460f80d149"
+      "__uuid__": "e21752d4-7243-4ab3-b849-2edd2922702b"
     },
     "_type": 0,
     "_sizeMode": 0,
@@ -1189,9 +1193,10 @@
       "__id__": 30
     },
     "_enabled": true,
-    "stationType": "STOVE",
+    "stationType": "CUTTING_BOARD",
     "gridCol": 5,
     "gridRow": 1,
+    "visualScale": 1.45,
     "cookTime": 4,
     "_id": "60+g8ivRRKQYD92CLib7pM"
   },
@@ -2498,7 +2503,7 @@
       "__id__": 2
     },
     "_children": [],
-    "_active": true,
+    "_active": false,
     "_components": [
       {
         "__id__": 64
