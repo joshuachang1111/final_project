@@ -327,7 +327,7 @@
       "__id__": 5
     },
     "_enabled": true,
-    "totalTime": 10,
+    "totalTime": 60,
     "_id": "1dBuo8F6BG+agubHDpUC6k"
   },
   {
@@ -837,7 +837,7 @@
     "visualScale": 1.45,
     "foodType": "burger",
     "foodSpriteFrame": {
-      "__uuid__": "884f716c-3121-4004-b6dc-93507f75d25c"
+      "__uuid__": "78987d7f-21ba-4452-9753-22d1cf808301"
     },
     "foodScale": 0.07,
     "_id": "07IVVxznxBDq9i7WHLhKmf"
@@ -918,7 +918,7 @@
     "_is3DNode": false,
     "_groupIndex": 0,
     "groupIndex": 0,
-    "_id": "30Xkrq4QxOlbDT61TrsNo3"
+    "_id": "56m+ckyddHCKfGyNk76C4s"
   },
   {
     "__type__": "cc.Sprite",
@@ -936,7 +936,7 @@
     "_srcBlendFactor": 770,
     "_dstBlendFactor": 771,
     "_spriteFrame": {
-      "__uuid__": "d4e9b447-55f3-41fa-b3c2-feea68490d04"
+      "__uuid__": "791face9-8834-40ea-aff0-d26d20eb5870"
     },
     "_type": 0,
     "_sizeMode": 0,
@@ -950,10 +950,10 @@
     "_fillRange": 0,
     "_isTrimmedMode": true,
     "_atlas": null,
-    "_id": "adSwZOfLNEg6Qg11kC38gP"
+    "_id": "7ahjMS6axFs6gWcNJNX0Jd"
   },
   {
-    "__type__": "4e447xkKR9G57vXz4QR6l44",
+    "__type__": "8e3fcY8CMJLz60M3pDJdmqe",
     "_name": "",
     "_objFlags": 0,
     "node": {
@@ -962,9 +962,14 @@
     "_enabled": true,
     "stationType": "FOOD_BOX",
     "gridCol": 1,
-    "gridRow": 1,
+    "gridRow": 3,
     "visualScale": 1.45,
-    "_id": "85PM6nTYNE4JPvv8tvymFO"
+    "foodType": "burger",
+    "foodSpriteFrame": {
+      "__uuid__": "2db2659b-3c86-4c1c-9417-3a5dabe28074"
+    },
+    "foodScale": 0.07,
+    "_id": "88sG5Adn1LzalfZ5oE/5xw"
   },
   {
     "__type__": "cc.PrefabInfo",
@@ -1042,7 +1047,7 @@
     "_is3DNode": false,
     "_groupIndex": 0,
     "groupIndex": 0,
-    "_id": "9aooFTHQZETqh583Gu9Z3y"
+    "_id": "09xrJRY69PGIe/v7q3RuNS"
   },
   {
     "__type__": "cc.Sprite",
@@ -1060,7 +1065,7 @@
     "_srcBlendFactor": 770,
     "_dstBlendFactor": 771,
     "_spriteFrame": {
-      "__uuid__": "d4e9b447-55f3-41fa-b3c2-feea68490d04"
+      "__uuid__": "791face9-8834-40ea-aff0-d26d20eb5870"
     },
     "_type": 0,
     "_sizeMode": 0,
@@ -1074,10 +1079,10 @@
     "_fillRange": 0,
     "_isTrimmedMode": true,
     "_atlas": null,
-    "_id": "12WYDUTyFJmqzTTSO+AEP2"
+    "_id": "20tE8f1FVNQ4MU+3XQ+p5v"
   },
   {
-    "__type__": "4e447xkKR9G57vXz4QR6l44",
+    "__type__": "8e3fcY8CMJLz60M3pDJdmqe",
     "_name": "",
     "_objFlags": 0,
     "node": {
@@ -1086,9 +1091,14 @@
     "_enabled": true,
     "stationType": "FOOD_BOX",
     "gridCol": 1,
-    "gridRow": 1,
+    "gridRow": 5,
     "visualScale": 1.45,
-    "_id": "a4l6VrymVGCo4hc9hERWsn"
+    "foodType": "burger",
+    "foodSpriteFrame": {
+      "__uuid__": "24a0e3c7-9e29-4185-8732-c3d36b2a27ad"
+    },
+    "foodScale": 0.07,
+    "_id": "70rldM9J9DwKmDaEs//nYm"
   },
   {
     "__type__": "cc.PrefabInfo",
@@ -1166,7 +1176,7 @@
     "_is3DNode": false,
     "_groupIndex": 0,
     "groupIndex": 0,
-    "_id": "442tR9zQFLGoGlva6oLWT9"
+    "_id": "17yj5ka2dBHboASoqCWSwB"
   },
   {
     "__type__": "cc.Sprite",
@@ -1184,7 +1194,7 @@
     "_srcBlendFactor": 770,
     "_dstBlendFactor": 771,
     "_spriteFrame": {
-      "__uuid__": "d4e9b447-55f3-41fa-b3c2-feea68490d04"
+      "__uuid__": "791face9-8834-40ea-aff0-d26d20eb5870"
     },
     "_type": 0,
     "_sizeMode": 0,
@@ -1198,10 +1208,10 @@
     "_fillRange": 0,
     "_isTrimmedMode": true,
     "_atlas": null,
-    "_id": "c5JAUZg+VCVrcwTIO40o4k"
+    "_id": "06137o2GpMXYnbB7llzCZQ"
   },
   {
-    "__type__": "4e447xkKR9G57vXz4QR6l44",
+    "__type__": "8e3fcY8CMJLz60M3pDJdmqe",
     "_name": "",
     "_objFlags": 0,
     "node": {
@@ -1210,9 +1220,14 @@
     "_enabled": true,
     "stationType": "FOOD_BOX",
     "gridCol": 1,
-    "gridRow": 1,
+    "gridRow": 7,
     "visualScale": 1.45,
-    "_id": "df0wPzBw5K8aB0EdYwBCG4"
+    "foodType": "burger",
+    "foodSpriteFrame": {
+      "__uuid__": "139c0b97-0f65-4ddb-8287-6c9766d4e6ba"
+    },
+    "foodScale": 0.07,
+    "_id": "e8qiZmcKFJYb9lTT2Q8nG7"
   },
   {
     "__type__": "cc.PrefabInfo",

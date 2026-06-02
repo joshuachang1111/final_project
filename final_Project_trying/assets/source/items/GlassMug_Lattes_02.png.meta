@@ -1,0 +1,38 @@
+{
+  "ver": "2.3.7",
+  "uuid": "70cfbc3e-e04d-496a-9122-9828b5612460",
+  "importer": "texture",
+  "type": "sprite",
+  "wrapMode": "clamp",
+  "filterMode": "bilinear",
+  "premultiplyAlpha": false,
+  "genMipmaps": false,
+  "packable": true,
+  "width": 1024,
+  "height": 1024,
+  "platformSettings": {},
+  "subMetas": {
+    "GlassMug_Lattes_02": {
+      "ver": "1.0.6",
+      "uuid": "c950bf2b-be38-4b4e-9074-cf50ae7bb8c8",
+      "importer": "sprite-frame",
+      "rawTextureUuid": "70cfbc3e-e04d-496a-9122-9828b5612460",
+      "trimType": "auto",
+      "trimThreshold": 1,
+      "rotated": false,
+      "offsetX": 0,
+      "offsetY": 0,
+      "trimX": 0,
+      "trimY": 0,
+      "width": 1024,
+      "height": 1024,
+      "rawWidth": 1024,
+      "rawHeight": 1024,
+      "borderTop": 0,
+      "borderBottom": 0,
+      "borderLeft": 0,
+      "borderRight": 0,
+      "subMetas": {}
+    }
+  }
+}

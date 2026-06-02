@@ -1,0 +1,38 @@
+{
+  "ver": "2.3.7",
+  "uuid": "ad216a41-56a1-4cd9-ace3-1e1d18cd8275",
+  "importer": "texture",
+  "type": "sprite",
+  "wrapMode": "clamp",
+  "filterMode": "bilinear",
+  "premultiplyAlpha": false,
+  "genMipmaps": false,
+  "packable": true,
+  "width": 1024,
+  "height": 1024,
+  "platformSettings": {},
+  "subMetas": {
+    "Tea_Cannisters_03": {
+      "ver": "1.0.6",
+      "uuid": "39bd1e6b-5f0a-4f80-9820-62e3432977d5",
+      "importer": "sprite-frame",
+      "rawTextureUuid": "ad216a41-56a1-4cd9-ace3-1e1d18cd8275",
+      "trimType": "auto",
+      "trimThreshold": 1,
+      "rotated": false,
+      "offsetX": 0,
+      "offsetY": 0,
+      "trimX": 0,
+      "trimY": 0,
+      "width": 1024,
+      "height": 1024,
+      "rawWidth": 1024,
+      "rawHeight": 1024,
+      "borderTop": 0,
+      "borderBottom": 0,
+      "borderLeft": 0,
+      "borderRight": 0,
+      "subMetas": {}
+    }
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "ver": "2.3.7",
+  "uuid": "da903123-e9a3-4053-a29d-baf911f4cc92",
+  "importer": "texture",
+  "type": "sprite",
+  "wrapMode": "clamp",
+  "filterMode": "bilinear",
+  "premultiplyAlpha": false,
+  "genMipmaps": false,
+  "packable": true,
+  "width": 128,
+  "height": 128,
+  "platformSettings": {},
+  "subMetas": {
+    "UI_Icon_Calc": {
+      "ver": "1.0.6",
+      "uuid": "4ef78d9a-dba1-4d87-a292-8a01d7266f4a",
+      "importer": "sprite-frame",
+      "rawTextureUuid": "da903123-e9a3-4053-a29d-baf911f4cc92",
+      "trimType": "auto",
+      "trimThreshold": 1,
+      "rotated": false,
+      "offsetX": 0,
+      "offsetY": 0,
+      "trimX": 26,
+      "trimY": 17,
+      "width": 76,
+      "height": 94,
+      "rawWidth": 128,
+      "rawHeight": 128,
+      "borderTop": 0,
+      "borderBottom": 0,
+      "borderLeft": 0,
+      "borderRight": 0,
+      "subMetas": {}
+    }
+  }
+}

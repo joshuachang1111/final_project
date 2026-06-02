@@ -1,0 +1,38 @@
+{
+  "ver": "2.3.7",
+  "uuid": "b214576d-a294-432e-8096-ee0d91b15ae4",
+  "importer": "texture",
+  "type": "sprite",
+  "wrapMode": "clamp",
+  "filterMode": "bilinear",
+  "premultiplyAlpha": false,
+  "genMipmaps": false,
+  "packable": true,
+  "width": 512,
+  "height": 512,
+  "platformSettings": {},
+  "subMetas": {
+    "Iced_Coffee_Liquid_04": {
+      "ver": "1.0.6",
+      "uuid": "b2ed4a82-6f7f-42ff-adbd-adac43f3888c",
+      "importer": "sprite-frame",
+      "rawTextureUuid": "b214576d-a294-432e-8096-ee0d91b15ae4",
+      "trimType": "auto",
+      "trimThreshold": 1,
+      "rotated": false,
+      "offsetX": 0,
+      "offsetY": 0,
+      "trimX": 0,
+      "trimY": 0,
+      "width": 512,
+      "height": 512,
+      "rawWidth": 512,
+      "rawHeight": 512,
+      "borderTop": 0,
+      "borderBottom": 0,
+      "borderLeft": 0,
+      "borderRight": 0,
+      "subMetas": {}
+    }
+  }
+}

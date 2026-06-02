@@ -1,0 +1,38 @@
+{
+  "ver": "2.3.7",
+  "uuid": "1edb8b0b-3051-4b82-b89a-b65522354382",
+  "importer": "texture",
+  "type": "sprite",
+  "wrapMode": "clamp",
+  "filterMode": "bilinear",
+  "premultiplyAlpha": false,
+  "genMipmaps": false,
+  "packable": true,
+  "width": 1024,
+  "height": 1024,
+  "platformSettings": {},
+  "subMetas": {
+    "TeaTin_Chinese_02": {
+      "ver": "1.0.6",
+      "uuid": "3dcfe2d1-8a92-4685-b6c9-831db458ddf5",
+      "importer": "sprite-frame",
+      "rawTextureUuid": "1edb8b0b-3051-4b82-b89a-b65522354382",
+      "trimType": "auto",
+      "trimThreshold": 1,
+      "rotated": false,
+      "offsetX": 0,
+      "offsetY": 0,
+      "trimX": 0,
+      "trimY": 0,
+      "width": 1024,
+      "height": 1024,
+      "rawWidth": 1024,
+      "rawHeight": 1024,
+      "borderTop": 0,
+      "borderBottom": 0,
+      "borderLeft": 0,
+      "borderRight": 0,
+      "subMetas": {}
+    }
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "ver": "2.3.7",
+  "uuid": "0007a5b6-ebf5-4131-84cf-3892e4188c81",
+  "importer": "texture",
+  "type": "sprite",
+  "wrapMode": "clamp",
+  "filterMode": "bilinear",
+  "premultiplyAlpha": false,
+  "genMipmaps": false,
+  "packable": true,
+  "width": 128,
+  "height": 128,
+  "platformSettings": {},
+  "subMetas": {
+    "UI_Icon_SocialWhatsapp": {
+      "ver": "1.0.6",
+      "uuid": "5d240290-0985-435c-b7ff-f62e5de2f964",
+      "importer": "sprite-frame",
+      "rawTextureUuid": "0007a5b6-ebf5-4131-84cf-3892e4188c81",
+      "trimType": "auto",
+      "trimThreshold": 1,
+      "rotated": false,
+      "offsetX": 0,
+      "offsetY": 0,
+      "trimX": 17,
+      "trimY": 18,
+      "width": 94,
+      "height": 92,
+      "rawWidth": 128,
+      "rawHeight": 128,
+      "borderTop": 0,
+      "borderBottom": 0,
+      "borderLeft": 0,
+      "borderRight": 0,
+      "subMetas": {}
+    }
+  }
+}

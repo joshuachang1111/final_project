@@ -1,0 +1,38 @@
+{
+  "ver": "2.3.7",
+  "uuid": "a14d16bc-8b4a-4300-808c-89ae3ef3ba6e",
+  "importer": "texture",
+  "type": "sprite",
+  "wrapMode": "clamp",
+  "filterMode": "bilinear",
+  "premultiplyAlpha": false,
+  "genMipmaps": false,
+  "packable": true,
+  "width": 1024,
+  "height": 1024,
+  "platformSettings": {},
+  "subMetas": {
+    "TeaBox_PeachRosehip": {
+      "ver": "1.0.6",
+      "uuid": "878e176e-5288-42b1-996a-07ac87812c65",
+      "importer": "sprite-frame",
+      "rawTextureUuid": "a14d16bc-8b4a-4300-808c-89ae3ef3ba6e",
+      "trimType": "auto",
+      "trimThreshold": 1,
+      "rotated": false,
+      "offsetX": 0,
+      "offsetY": 0,
+      "trimX": 0,
+      "trimY": 0,
+      "width": 1024,
+      "height": 1024,
+      "rawWidth": 1024,
+      "rawHeight": 1024,
+      "borderTop": 0,
+      "borderBottom": 0,
+      "borderLeft": 0,
+      "borderRight": 0,
+      "subMetas": {}
+    }
+  }
+}

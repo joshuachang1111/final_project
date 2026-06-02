@@ -1,0 +1,38 @@
+{
+  "ver": "2.3.7",
+  "uuid": "82a6ec3f-05f4-4b0a-9e04-25978a86369e",
+  "importer": "texture",
+  "type": "sprite",
+  "wrapMode": "clamp",
+  "filterMode": "bilinear",
+  "premultiplyAlpha": false,
+  "genMipmaps": false,
+  "packable": true,
+  "width": 128,
+  "height": 128,
+  "platformSettings": {},
+  "subMetas": {
+    "UI_Icon_FaithIslam": {
+      "ver": "1.0.6",
+      "uuid": "5b1172d8-6618-4081-800a-c4066a6d8eb1",
+      "importer": "sprite-frame",
+      "rawTextureUuid": "82a6ec3f-05f4-4b0a-9e04-25978a86369e",
+      "trimType": "auto",
+      "trimThreshold": 1,
+      "rotated": false,
+      "offsetX": 0,
+      "offsetY": 0,
+      "trimX": 19,
+      "trimY": 17,
+      "width": 90,
+      "height": 94,
+      "rawWidth": 128,
+      "rawHeight": 128,
+      "borderTop": 0,
+      "borderBottom": 0,
+      "borderLeft": 0,
+      "borderRight": 0,
+      "subMetas": {}
+    }
+  }
+}
