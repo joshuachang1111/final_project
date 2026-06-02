@@ -52,7 +52,8 @@ const ResultScreen = cc.Class({
 
         cc.log('[ResultScreen] onLoad: replayButton=', !!this.replayButton,
                'menuButton=', !!this.menuButton,
-               'resultPanel=', !!this.resultPanel);
+               'resultPanel=', !!this.resultPanel,
+               'role=', window._nmRole);
 
         // 雙保險：同時掛 cc.Button 的 'click' 跟 node 的 TOUCH_END。
         // 'click' 需要 cc.Button.onEnable 已經跑過（要等節點 active in hierarchy），
@@ -69,10 +70,19 @@ const ResultScreen = cc.Class({
         }
 
         EventBus.on('game:end', this._onGameEnd, this);
+
+        // Guest 訂閱 Host 在結算畫面的選擇，跟著切場景
+        if (window._nmRole === 'guest' && window._nm) {
+            window._nm.on('host_result_choice', this._onHostChoice, this);
+        }
     },
 
     onDestroy() {
         EventBus.off('game:end', this._onGameEnd, this);
+
+        if (window._nm) {
+            window._nm.off('host_result_choice', this._onHostChoice);
+        }
 
         // scene unload 時子節點可能已經被先銷毀，這時 this.replayButton 仍非 null 但
         // .node 已 invalid。要用 cc.isValid 多檢查一層才不會吃 TypeError。
@@ -93,16 +103,27 @@ const ResultScreen = cc.Class({
     _onGameEnd(data) {
         cc.log('[ResultScreen] 遊戲結束，分數:', data.score);
 
+        const isHost = window._nmRole !== 'guest';  // 單機 / null 都當 host
+
         if (this.finalScoreLabel) {
-            this.finalScoreLabel.string = '最終分數: ' + data.score;
+            let scoreText = '最終分數: ' + data.score;
+            if (!isHost) scoreText += '\n等待房主選擇...';
+            this.finalScoreLabel.string = scoreText;
         }
 
         if (this.resultPanel) {
             this.resultPanel.active = true;
-            cc.log('[ResultScreen] panel 已 active, replayButton.enabledInHierarchy=',
-                   this.replayButton && this.replayButton.enabledInHierarchy,
-                   'menuButton.enabledInHierarchy=',
-                   this.menuButton && this.menuButton.enabledInHierarchy);
+            cc.log('[ResultScreen] panel 已 active, role=', window._nmRole);
+        }
+
+        // Guest 只看不能按，隱藏按鈕
+        if (!isHost) {
+            if (this.replayButton && this.replayButton.node) {
+                this.replayButton.node.active = false;
+            }
+            if (this.menuButton && this.menuButton.node) {
+                this.menuButton.node.active = false;
+            }
         }
     },
 
@@ -112,26 +133,59 @@ const ResultScreen = cc.Class({
 
     _onReplay() {
         if (this._clicked) return;   // 'click' 跟 TOUCH_END 雙保險可能會 double-fire
+        if (window._nmRole === 'guest') return;   // 只有 Host 能按
         this._clicked = true;
-        cc.log('[ResultScreen] 再玩一次 clicked → 回選關');
+        cc.log('[ResultScreen] Host 再玩一次 clicked → 回選關');
         // NetworkManager 的 _gameStarted 從上一局還留著 true，下一次 raiseEvent
         // code 2 會被當成重複觸發直接 ignore，必須先 reset。
-        if (window._nm) window._nm._gameStarted = false;
+        if (window._nm) {
+            window._nm._gameStarted = false;
+            if (typeof window._nm.sendResultChoice === 'function') {
+                window._nm.sendResultChoice('replay');
+            }
+        }
         EventBus.clear();
         cc.director.loadScene('levelselect');
     },
 
     _onMenu() {
         if (this._clicked) return;
+        if (window._nmRole === 'guest') return;
         this._clicked = true;
-        cc.log('[ResultScreen] 回主選單 clicked');
-        // 回主選單前先離開 Photon 房間，否則 NM 還掛在原本房裡，
-        // 下次想建房 / 加入會出怪事。
-        if (window._nm && typeof window._nm.leaveRoom === 'function') {
-            window._nm.leaveRoom();
+        cc.log('[ResultScreen] Host 回主選單 clicked');
+        // 先廣播給 Guest，給 raiseEvent 一點時間送出再離開房間 + 切場景
+        if (window._nm && typeof window._nm.sendResultChoice === 'function') {
+            window._nm.sendResultChoice('menu');
         }
-        EventBus.clear();
-        cc.director.loadScene('menu');
+        this.scheduleOnce(() => {
+            if (window._nm && typeof window._nm.leaveRoom === 'function') {
+                window._nm.leaveRoom();
+            }
+            EventBus.clear();
+            cc.director.loadScene('menu');
+        }, 0.3);
+    },
+
+    // ─────────────────────────────────────────────
+    //  Guest 收到 Host 的選擇
+    // ─────────────────────────────────────────────
+
+    _onHostChoice(msg) {
+        if (this._clicked) return;
+        this._clicked = true;
+        cc.log('[ResultScreen] Guest 收到 host 選擇:', msg.choice);
+        if (msg.choice === 'replay') {
+            if (window._nm) window._nm._gameStarted = false;
+            EventBus.clear();
+            cc.director.loadScene('levelselect');
+        } else {
+            // menu
+            if (window._nm && typeof window._nm.leaveRoom === 'function') {
+                window._nm.leaveRoom();
+            }
+            EventBus.clear();
+            cc.director.loadScene('menu');
+        }
     },
 });
 
