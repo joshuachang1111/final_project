@@ -161,8 +161,9 @@ InputHandler → PlayerController → AnimationController
 - 等待室（Host/Guest 名字顯示）+ Host 手動開始
 - 網路同步（移動 EV10 用 {x,y,facing}、站台 EV11、出餐 EV12）
 - GridDebugger 開發工具（透視梯形格子視覺化）
-- **3D 人物 Sprite**：Kenney Blocky Characters → Blender 等角渲染 → 4 方向靜態 Sprite Sheet（256×1024）
-- **AnimationController 重寫**：4 方向 Sprite 切換 + 走路彈跳縮放動畫（BOUNCE_SCALE=1.1）
+- **3D 人物 Sprite**：Kenney Blocky Characters → Blender 等角渲染 → 8 方向靜態 Sprite Sheet（256×2048）
+- **AnimationController**：8 方向 Sprite 切換 + 走路彈跳縮放動畫（BOUNCE_SCALE=1.1）
+- **PlayerController**：8 方向朝向偵測（對角優先，同時按兩鍵 → UP_RIGHT / DOWN_LEFT 等）
 - cc.Class getter 改為一般方法（避免 Cocos Creator 2.4.x 序列化報錯）
 - **關卡選擇頁面**（朋友實作）：levelselect.fire + LevelSelectManager.js，4 張關卡卡片（susui/hansung/shuimu/fengyun），目前全部導向同一個 game 場景
 - **NetworkManager 更新**：startGame 接收 level 參數，EV code 2 payload 帶 level；start_game event 帶 `{ role, level }`
@@ -179,11 +180,24 @@ InputHandler → PlayerController → AnimationController
 ### Sprite Sheet 製作流程（備忘）
 ```
 1. Kenney Blocky Characters → Models/GLB format/character-a.glb
-2. Blender 3.6：匯入 GLB，執行 ~/Desktop/render_character.py
-   → 輸出 ~/Desktop/render_output/{down,up,left,right}.png
+2. Blender 3.6：匯入 GLB（File → Import → glTF 2.0），切到 Scripting 分頁
+   執行 ~/Desktop/render_character.py
+   → 輸出 ~/Desktop/render_output/ 8 張 PNG
+     (down, down_right, right, up_right, up, up_left, left, down_left)
 3. python3 ~/Desktop/make_spritesheet.py
-   → 輸出 ~/Desktop/render_output/player1_sheet.png（256×1024）
-4. 放入 assets/img/，在 Player 節點 Sprite Frame 換上
+   → 輸出 ~/Desktop/render_output/player1_sheet.png（256×2048，8 列）
+4. 覆蓋 assets/img/player1_sheet.png，Cocos Assets 面板刷新即可
+
+注意：相機 azimuth=45°，所以角色 z±45°/±135° 才是正臉對相機的 cardinal 方向，
+      z=0°/90°/180°/-90° 是斜角方向。render_character.py 已依此命名正確。
+```
+
+### AnimationController DIR_TO_ROW（Sprite Sheet row 對應）
+```
+row 0 = down       row 1 = down_right
+row 2 = right      row 3 = up_right
+row 4 = up         row 5 = up_left
+row 6 = left       row 7 = down_left
 ```
 
 ---

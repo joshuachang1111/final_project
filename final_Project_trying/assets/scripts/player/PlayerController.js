@@ -31,10 +31,14 @@ const CarryState = {
 };
 
 const Direction = {
-    UP:    { dc:  0, dr: -1, name: 'up'    },
-    DOWN:  { dc:  0, dr:  1, name: 'down'  },
-    LEFT:  { dc: -1, dr:  0, name: 'left'  },
-    RIGHT: { dc:  1, dr:  0, name: 'right' },
+    UP:         { dc:  0, dr: -1, name: 'up'         },
+    DOWN:       { dc:  0, dr:  1, name: 'down'       },
+    LEFT:       { dc: -1, dr:  0, name: 'left'       },
+    RIGHT:      { dc:  1, dr:  0, name: 'right'      },
+    UP_RIGHT:   { dc:  1, dr: -1, name: 'up_right'   },
+    UP_LEFT:    { dc: -1, dr: -1, name: 'up_left'    },
+    DOWN_RIGHT: { dc:  1, dr:  1, name: 'down_right' },
+    DOWN_LEFT:  { dc: -1, dr:  1, name: 'down_left'  },
 };
 
 const PlayerController = cc.Class({
@@ -108,11 +112,15 @@ const PlayerController = cc.Class({
         this._vy = vy * SPEED;
         this._isMoving = (this._vx !== 0 || this._vy !== 0);
 
-        // 更新朝向（垂直優先）
-        if      (up)    this._facing = Direction.UP;
-        else if (down)  this._facing = Direction.DOWN;
-        else if (left)  this._facing = Direction.LEFT;
-        else if (right) this._facing = Direction.RIGHT;
+        // 更新朝向（對角優先，再判斷單方向）
+        if      (up   && right) this._facing = Direction.UP_RIGHT;
+        else if (up   && left)  this._facing = Direction.UP_LEFT;
+        else if (down && right) this._facing = Direction.DOWN_RIGHT;
+        else if (down && left)  this._facing = Direction.DOWN_LEFT;
+        else if (up)            this._facing = Direction.UP;
+        else if (down)          this._facing = Direction.DOWN;
+        else if (left)          this._facing = Direction.LEFT;
+        else if (right)         this._facing = Direction.RIGHT;
 
         this._moveWithCollision(dt);
 

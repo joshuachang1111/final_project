@@ -1,31 +1,40 @@
 /**
  * AnimationController  (cc.Component)
- * 搭配 4 方向靜態 Sprite Sheet 使用。
+ * 搭配 8 方向靜態 Sprite Sheet 使用。
  *
  * Sprite Sheet 格式：
- *   256 × 1024 px（1 欄 × 4 列，每格 256×256）
+ *   256 × 2048 px（1 欄 × 8 列，每格 256×256）
  *   row 0 = down
- *   row 1 = up
- *   row 2 = left
- *   row 3 = right
+ *   row 1 = down_right
+ *   row 2 = right
+ *   row 3 = up_right
+ *   row 4 = up
+ *   row 5 = up_left
+ *   row 6 = left
+ *   row 7 = down_left
  *
  * 功能：
- *  1. 依 facing 切換朝向 Sprite Frame
+ *  1. 依 facing 切換朝向 Sprite Frame（8 方向）
  *  2. 移動中做 Y 軸彈跳縮放（走路感）
  */
 
-const FRAME_W = 256;   // 每格寬度（px）
-const FRAME_H = 256;   // 每格高度（px）
+const FRAME_W  = 256;   // 每格寬度（px）
+const FRAME_H  = 256;   // 每格高度（px）
+const NUM_DIRS = 8;     // 方向數
 
 // 彈跳動畫參數
 const BOUNCE_SCALE  = 1.10;   // 彈跳時的最大 Y 縮放
 const BOUNCE_HALF   = 0.12;   // 每半個週期的秒數（總週期 0.24s）
 
 const DIR_TO_ROW = {
-    down:  0,
-    up:    1,
-    left:  3,   // 渲染時 left/right 互換，對調修正
-    right: 2,
+    down:       0,
+    down_right: 1,
+    right:      2,
+    up_right:   3,
+    up:         4,
+    up_left:    5,
+    left:       6,
+    down_left:  7,
 };
 
 const PlayerController = require('./PlayerController');
@@ -60,9 +69,9 @@ const AnimationController = cc.Class({
             return;
         }
 
-        // 預建 4 個方向的 SpriteFrame（每個方向佔一列）
+        // 預建 8 個方向的 SpriteFrame（每個方向佔一列）
         this._frames = [];
-        for (let row = 0; row < 4; row++) {
+        for (let row = 0; row < NUM_DIRS; row++) {
             this._frames[row] = new cc.SpriteFrame(
                 texture,
                 new cc.Rect(0, row * FRAME_H, FRAME_W, FRAME_H)
