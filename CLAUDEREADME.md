@@ -82,9 +82,9 @@ toGrid(worldX, worldY) → 先用 ROW_Y 定 row，再用 cellW 定 col
 | code | 方向 | payload | 說明 |
 |---|---|---|---|
 | `1` | Guest→Host | `{ action:'guest_joined', name }` | Guest 入房告知名字 |
-| `2` | Host→Guest | `{ action:'host_start' }` | Host 按下開始 |
+| `2` | Host→Guest | `{ action:'host_start', level }` | Host 按下開始（含關卡 ID） |
 | `3` | Host→Guest | `{ action:'host_info', name }` | Host 回傳自己名字 |
-| `10` | 雙向 | `{ col, row, facing }` | 玩家移動 |
+| `10` | 雙向 | `{ x, y, facing }` | 玩家移動（世界座標） |
 | `11` | 雙向 | `{ action, stationType, col, row, item }` | 站台互動（action='pickup'或'place'） |
 | `12` | 雙向 | `{ col, row, item }` | 出餐成功（ServingCounter 專用，避免雙重計分） |
 
@@ -125,6 +125,8 @@ InputHandler → PlayerController → AnimationController
 4. **遠端 place 動作**：Bridge 直接設 `remote._carryState = HOLDING`，再呼叫 `station.onInteract(remote)`，讓 station 的 `_onPlace` 正常執行（包含烹飪計時）
 5. **startGame 時機**：`GameNetworkBridge.onLoad()` 延遲一幀（`scheduleOnce(..., 0)`）呼叫 `GameManager.startGame()`，確保所有 onLoad 跑完
 6. **GameManager 是 persistRootNode**：場景切換後存活，重新開始時 `startGame()` 會重置狀態
+7. **關卡選擇流程**：`LevelSelectManager.onLevelSelected()` 設 `window._selectedLevel` → `NetworkManager.startGame(levelId)` 廣播 EV code 2 含 level → 兩端收到後 load 'game' 場景（目前四個關卡都指向同一個 game.fire，未來可依 level 分叉）
+8. **YSorter**：掛在 Stations / Players 的父節點上，每幀依子節點 Y 值設 zIndex，Y 越低（越靠畫面前方）→ zIndex 越大，製造 2.5D 前後遮擋感
 
 ---
 
@@ -162,13 +164,17 @@ InputHandler → PlayerController → AnimationController
 - **3D 人物 Sprite**：Kenney Blocky Characters → Blender 等角渲染 → 4 方向靜態 Sprite Sheet（256×1024）
 - **AnimationController 重寫**：4 方向 Sprite 切換 + 走路彈跳縮放動畫（BOUNCE_SCALE=1.1）
 - cc.Class getter 改為一般方法（避免 Cocos Creator 2.4.x 序列化報錯）
+- **關卡選擇頁面**（朋友實作）：levelselect.fire + LevelSelectManager.js，4 張關卡卡片（susui/hansung/shuimu/fengyun），目前全部導向同一個 game 場景
+- **NetworkManager 更新**：startGame 接收 level 參數，EV code 2 payload 帶 level；start_game event 帶 `{ role, level }`
+- **YSorter**：掛在父節點，自動依子節點 Y 值設 zIndex 產生 2.5D 前後遮擋
 
 ### 🚧 尚缺
 - Player2 prefab（white_guy）—— 需用同流程再渲染一個角色
 - CuttingBoard prefab
 - 食材 Sprite 圖片（目前是空 Sprite 佔位）
-- 多張地圖
+- 多張地圖（目前四個關卡都是同一個背景）
 - 斷線處理（遊戲中）
+- `window._selectedLevel` 在 GameManager/場景中尚未使用（關卡差異化的後端邏輯待接）
 
 ### Sprite Sheet 製作流程（備忘）
 ```
