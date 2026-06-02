@@ -50,6 +50,17 @@ const ResultScreen = cc.Class({
         // 預設隱藏結算面板
         if (this.resultPanel) this.resultPanel.active = false;
 
+        // 用 cc.Button 的 'click' 事件（cc.Button 內部處理完 TOUCH_END 後 emit 出來），
+        // 直接在 onLoad 註冊就好，listener 會跟著節點存活，不會因為 panel 一開始是
+        // inactive 而失效。原本用 TOUCH_END + 等 game:end 才綁，會跟 cc.Button 自己
+        // 註冊的 TOUCH_END 處理順序打架，常常按了沒反應。
+        if (this.replayButton) {
+            this.replayButton.node.on('click', this._onReplay, this);
+        }
+        if (this.menuButton) {
+            this.menuButton.node.on('click', this._onMenu, this);
+        }
+
         EventBus.on('game:end', this._onGameEnd, this);
     },
 
@@ -57,10 +68,10 @@ const ResultScreen = cc.Class({
         EventBus.off('game:end', this._onGameEnd, this);
 
         if (this.replayButton) {
-            this.replayButton.node.off(cc.Node.EventType.TOUCH_END, this._onReplay, this);
+            this.replayButton.node.off('click', this._onReplay, this);
         }
         if (this.menuButton) {
-            this.menuButton.node.off(cc.Node.EventType.TOUCH_END, this._onMenu, this);
+            this.menuButton.node.off('click', this._onMenu, this);
         }
     },
 
@@ -76,16 +87,6 @@ const ResultScreen = cc.Class({
         }
 
         if (this.resultPanel) this.resultPanel.active = true;
-
-        // 在 panel 顯示後才綁定按鈕，確保節點 active 時才註冊觸控事件
-        if (this.replayButton) {
-            this.replayButton.node.off(cc.Node.EventType.TOUCH_END, this._onReplay, this); // 防重複
-            this.replayButton.node.on(cc.Node.EventType.TOUCH_END, this._onReplay, this);
-        }
-        if (this.menuButton) {
-            this.menuButton.node.off(cc.Node.EventType.TOUCH_END, this._onMenu, this); // 防重複
-            this.menuButton.node.on(cc.Node.EventType.TOUCH_END, this._onMenu, this);
-        }
     },
 
     // ─────────────────────────────────────────────
@@ -94,12 +95,20 @@ const ResultScreen = cc.Class({
 
     _onReplay() {
         cc.log('[ResultScreen] 再玩一次');
+        // NetworkManager 的 _gameStarted 從上一局還留著 true，下一次 raiseEvent
+        // code 2 會被當成重複觸發直接 ignore，必須先 reset。
+        if (window._nm) window._nm._gameStarted = false;
         EventBus.clear();
         cc.director.loadScene('game');
     },
 
     _onMenu() {
         cc.log('[ResultScreen] 回主選單');
+        // 回主選單前先離開 Photon 房間，否則 NM 還掛在原本房裡，
+        // 下次想建房 / 加入會出怪事。
+        if (window._nm && typeof window._nm.leaveRoom === 'function') {
+            window._nm.leaveRoom();
+        }
         EventBus.clear();
         cc.director.loadScene('menu');
     },
