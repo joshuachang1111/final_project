@@ -5,7 +5,9 @@ cc.Class({
     extends: cc.Component,
 
     onLoad() {
+        cc.log('【NetworkManager onLoad】初始化...');
         if (window._nm && cc.isValid(window._nm.node)) {
+            cc.log('【NetworkManager onLoad】已存在，銷毀重複');
             this.node.destroy();
             return;
         }
@@ -13,6 +15,7 @@ cc.Class({
         window._nmRole = null;
         window._nmRoomCode = null;
         window._nmReady = false;
+        cc.log('【NetworkManager onLoad】設為 persistent');
         cc.game.addPersistRootNode(this.node);
 
         this._callbacks = {};
@@ -70,10 +73,14 @@ cc.Class({
                 this._client.raiseEvent(3, { action: 'host_info', name: hostName });
                 this._emit('guest_joined', { name: data.name });
             } else if (code === 2 && data && data.action === 'host_start') {
-                // Host 按下開始，雙方進入遊戲
+                // Host 選完餐廳，通知 Guest 進入遊戲
+                cc.log('【Code 2 收到】role=', window._nmRole, 'data=', JSON.stringify(data), '_gameStarted=', this._gameStarted);
                 if (!this._gameStarted) {
                     this._gameStarted = true;
-                    this._emit('start_game', { role: window._nmRole });
+                    cc.log('【emit start_game】即將進入遊戲');
+                    this._emit('start_game', { role: window._nmRole, level: data.level || 'susui' });
+                } else {
+                    cc.log('【Code 2 忽略】_gameStarted 已為 true');
                 }
             } else if (code === 3 && data && data.action === 'host_info' && window._nmRole === 'guest') {
                 this._emit('host_info', { name: data.name });
@@ -160,11 +167,19 @@ cc.Class({
     },
 
     // Host 按下開始後呼叫
-    startGame() {
-        if (this._gameStarted) return;
+    startGame(level) {
+        cc.log('【startGame 被呼叫】level=', level, '_gameStarted=', this._gameStarted);
+        if (this._gameStarted) {
+            cc.log('【startGame 早已執行，忽略】');
+            return;
+        }
         this._gameStarted = true;
-        this._client.raiseEvent(2, { action: 'host_start' });
-        this._emit('start_game', { role: 'host' });
+        const levelId = level || 'susui';
+        cc.log('【Host startGame】level=', levelId, '廣播 code 2...');
+        cc.log('【raiseEvent】code=2, data=', { action: 'host_start', level: levelId });
+        this._client.raiseEvent(2, { action: 'host_start', level: levelId });
+        cc.log('【Host emit start_game】進入遊戲');
+        this._emit('start_game', { role: 'host', level: levelId });
     },
 
     leaveRoom() {

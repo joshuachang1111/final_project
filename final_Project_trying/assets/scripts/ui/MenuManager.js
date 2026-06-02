@@ -180,6 +180,7 @@ cc.Class({
 
         nm.on('start_game', (msg) => {
             cc.sys.localStorage.setItem('playerRole', msg.role);
+            cc.sys.localStorage.setItem('selectedLevel', msg.level || 'susui');
             cc.director.loadScene('game');
         });
 
@@ -258,8 +259,7 @@ cc.Class({
 
     // Host 按下開始按鈕
     onStartGame() {
-        const nm = window._nm;
-        if (!nm) return;
-        nm.startGame();
+        cc.log('onStartGame clicked - 進入關卡選擇');
+        cc.director.loadScene('levelselect');
     },
 });
