@@ -47,10 +47,11 @@ const AnimationController = cc.Class({
         this._player      = null;
         this._frames      = null;
         this._lastRow     = -1;
+        this._loadedChar  = null;   // 目前已載入的角色 ID，避免重複載入
 
         // 彈跳計時
         this._bounceTimer = 0;
-        this._bounceUp    = true;   // 目前彈跳方向（true=往上縮放）
+        this._bounceUp    = true;
     },
 
     start() {
@@ -60,15 +61,52 @@ const AnimationController = cc.Class({
             return;
         }
 
+        const localId = window._nmRole === 'host' ? 1 : (window._nmRole === 'guest' ? 2 : this._player.playerId);
+        const isLocal = (this._player.playerId === localId) || !window._nmRole;
+
+        cc.log(`[AnimCtrl] playerId=${this._player.playerId} localId=${localId} isLocal=${isLocal} role=${window._nmRole} sprite=${!!this._sprite}`);
+
+        if (isLocal) {
+            const charId = window._selectedCharacter || null;
+            cc.log(`[AnimCtrl] 本地 → charId=${charId}`);
+            if (charId) { this.loadCharacter(charId); } else { this._initFromSprite(); }
+        } else {
+            const remoteChar = window._remoteCharacter || null;
+            cc.log(`[AnimCtrl] 遠端 → remoteChar=${remoteChar}`);
+            if (remoteChar) { this.loadCharacter(remoteChar); } else { this._initFromSprite(); }
+        }
+    },
+
+    // 公開方法：隨時可呼叫來切換角色 sprite
+    loadCharacter(charId) {
+        if (!charId) return;
+        if (this._loadedChar === charId) return;   // 已載入，跳過
+        this._loadedChar = charId;
+        cc.log(`[AnimCtrl] loadCharacter: ${charId}, sprite=${!!this._sprite}`);
+        cc.resources.load(`characters/${charId}_sheet`, cc.Texture2D, (err, tex) => {
+            if (err || !tex) {
+                cc.warn('[AnimCtrl] 載入失敗:', charId, err && err.message);
+                this._loadedChar = null;   // 重置，下次再試
+                this._initFromSprite();
+                return;
+            }
+            cc.log(`[AnimCtrl] 載入成功: ${charId}`);
+            this._buildFrames(tex);
+        });
+    },
+
+    _initFromSprite() {
         const texture = this._sprite && this._sprite.spriteFrame
             ? this._sprite.spriteFrame.getTexture()
             : null;
-
         if (!texture) {
             cc.error('[AnimationController] 找不到 Texture，請確認 Sprite Frame 已設定');
             return;
         }
+        this._buildFrames(texture);
+    },
 
+    _buildFrames(texture) {
         // 預建 8 個方向的 SpriteFrame（每個方向佔一列）
         this._frames = [];
         for (let row = 0; row < NUM_DIRS; row++) {
@@ -77,7 +115,6 @@ const AnimationController = cc.Class({
                 new cc.Rect(0, row * FRAME_H, FRAME_W, FRAME_H)
             );
         }
-
         this._showRow(0);
     },
 

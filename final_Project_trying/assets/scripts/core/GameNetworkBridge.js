@@ -5,6 +5,7 @@ const GameManager = require('./GameManager');
 const EV_MOVE    = 10;   // 玩家移動
 const EV_STATION = 11;   // 站台互動（pickup / place）
 const EV_SERVE   = 12;   // 出餐成功（用於同步分數與訂單移除，避免雙重計分）
+const EV_CHAR    = 13;   // 角色選擇同步（遊戲開始時各自廣播）
 
 cc.Class({
     extends: cc.Component,
@@ -37,6 +38,7 @@ cc.Class({
                 GameManager.instance.startGame();
             }
         }, 0);
+
     },
 
     onDestroy() {
@@ -55,10 +57,12 @@ cc.Class({
     _handleLocalMove(data) {
         if (data.playerId !== this._localId) return;
         if (!window._nm) return;
+
         window._nm.sendGameEvent(EV_MOVE, {
             x:      data.x,
             y:      data.y,
             facing: data.facing,
+            char:   window._selectedCharacter || 'character-a',  // 每幀夾帶，確保對方收到
         });
     },
 
@@ -113,6 +117,21 @@ cc.Class({
         const remote = GameManager.instance.getPlayer(this._remoteId);
         if (!remote) { cc.log('Bridge: 找不到 remoteId =', this._remoteId); return; }
         remote.applyNetworkState(data.x, data.y, data.facing);
+
+        // 收到對方夾帶的角色選擇，更新遠端玩家 sprite
+        if (data.char) {
+            if (data.char !== window._remoteCharacter) {
+                window._remoteCharacter = data.char;
+                cc.log('Bridge: 遠端角色更新:', data.char, 'remoteId=', this._remoteId);
+            }
+            const AnimationController = require('../player/AnimationController');
+            const anim = remote.node.getComponent(AnimationController);
+            if (anim) {
+                anim.loadCharacter(data.char);   // AnimCtrl 內部防重複，安全
+            } else {
+                cc.warn('Bridge: 找不到 AnimationController，node:', remote.node.name);
+            }
+        }
     },
 
     // Bug 4 fix: properly replay station interactions using the 'action' field.
@@ -191,5 +210,25 @@ cc.Class({
             recipe: data.item,
             score:  reward,
         });
+    },
+
+    // 收到遠端角色選擇，更新遠端玩家的 Sprite
+    _applyRemoteChar(data) {
+        cc.log('Bridge: 收到遠端角色選擇:', data.charId);
+        window._remoteCharacter = data.charId;
+
+        // 通知遠端玩家的 AnimationController 重新載入 sprite
+        if (!GameManager.instance) return;
+        const remote = GameManager.instance.getPlayer(this._remoteId);
+        if (!remote) return;
+
+        // 用 class 引用查找（比字串更可靠）
+        const AnimationController = require('../player/AnimationController');
+        const anim = remote.node.getComponent(AnimationController);
+        if (anim) {
+            anim.loadCharacter(data.charId);
+        } else {
+            cc.warn('Bridge: 找不到遠端 AnimationController，remoteId=', this._remoteId);
+        }
     },
 });

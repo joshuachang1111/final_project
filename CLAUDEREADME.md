@@ -159,23 +159,29 @@ InputHandler → PlayerController → AnimationController
 - 結果畫面（ResultScreen）
 - Google 登入 + 暱稱設定
 - 等待室（Host/Guest 名字顯示）+ Host 手動開始
-- 網路同步（移動 EV10 用 {x,y,facing}、站台 EV11、出餐 EV12）
+- 網路同步（移動 EV10 用 {x,y,facing,char}、站台 EV11、出餐 EV12）
 - GridDebugger 開發工具（透視梯形格子視覺化）
 - **3D 人物 Sprite**：Kenney Blocky Characters → Blender 等角渲染 → 8 方向靜態 Sprite Sheet（256×2048）
-- **AnimationController**：8 方向 Sprite 切換 + 走路彈跳縮放動畫（BOUNCE_SCALE=1.1）
-- **PlayerController**：8 方向朝向偵測（對角優先，同時按兩鍵 → UP_RIGHT / DOWN_LEFT 等）
+- **AnimationController**：8 方向切換 + 走路彈跳動畫 + 動態載入角色 sprite（`loadCharacter(charId)`）
+- **PlayerController**：8 方向朝向偵測（對角優先）
 - cc.Class getter 改為一般方法（避免 Cocos Creator 2.4.x 序列化報錯）
-- **關卡選擇頁面**（朋友實作）：levelselect.fire + LevelSelectManager.js，4 張關卡卡片（susui/hansung/shuimu/fengyun），目前全部導向同一個 game 場景
-- **NetworkManager 更新**：startGame 接收 level 參數，EV code 2 payload 帶 level；start_game event 帶 `{ role, level }`
-- **YSorter**：掛在父節點，自動依子節點 Y 值設 zIndex 產生 2.5D 前後遮擋
+- **關卡選擇頁面**（朋友實作）：levelselect.fire + LevelSelectManager.js，4 張關卡卡片
+- **NetworkManager 更新**：startGame 接收 level 參數，EV code 2 帶 level
+- **YSorter**：掛在父節點，依 Y 值自動設 zIndex 產生 2.5D 前後遮擋
+- **角色選擇場景**（charselect.fire）：全程式建 UI，CharSelectManager.js
+  - 左側 4×2 頭像縮圖（Mask 裁切顯示臉部），右側完整大頭照
+  - 技能選擇 2×2 卡片（佔位），確認後回 menu
+  - 背景圖：`assets/resources/charselect_bg.png`（卡通廚房風格，Python PIL 生成）
+- **角色網路同步**：EV_MOVE payload 夾帶 `char` 欄位（每幀），對方收到後呼叫 `loadCharacter`
+  - Host/Guest 各自顯示自己選擇的角色
+  - `AnimationController._loadedChar` 防重複載入
 
 ### 🚧 尚缺
-- Player2 prefab（white_guy）—— 需用同流程再渲染一個角色
-- CuttingBoard prefab
 - 食材 Sprite 圖片（目前是空 Sprite 佔位）
 - 多張地圖（目前四個關卡都是同一個背景）
 - 斷線處理（遊戲中）
-- `window._selectedLevel` 在 GameManager/場景中尚未使用（關卡差異化的後端邏輯待接）
+- `window._selectedLevel` 在 GameManager 中尚未使用（關卡差異化待實作）
+- 技能系統後端邏輯（charselect 介面已完成，技能效果尚未接入遊戲）
 
 ### Sprite Sheet 製作流程（備忘）
 ```
@@ -198,6 +204,33 @@ row 0 = down       row 1 = down_right
 row 2 = right      row 3 = up_right
 row 4 = up         row 5 = up_left
 row 6 = left       row 7 = down_left
+```
+
+### 角色選擇系統
+```
+charselect.fire
+  ↓ 確認選擇
+window._selectedCharacter = 'character-x'   （持久在 window，場景切換不清除）
+window._selectedSkill     = 'skill_N'
+
+game.fire 載入時：
+  AnimationController.start()
+    → isLocal  → loadCharacter(window._selectedCharacter)
+    → isRemote → loadCharacter(window._remoteCharacter) 或 _initFromSprite
+
+EV_MOVE payload 帶 char 欄位：
+  GameNetworkBridge._handleLocalMove → sendGameEvent(10, { x, y, facing, char })
+  GameNetworkBridge._applyRemoteMove → anim.loadCharacter(data.char)
+  AnimationController._loadedChar 防重複
+```
+
+可用角色清單（assets/resources/characters/）：
+character-a ～ character-f、character-h、character-i（共 8 個，無 g）
+
+背景圖生成腳本：`~/Desktop/make_charselect_bg.py`
+```bash
+python3 ~/Desktop/make_charselect_bg.py
+cp ~/Desktop/charselect_bg.png .../assets/resources/charselect_bg.png
 ```
 
 ---
