@@ -21,6 +21,18 @@ const FoodBox = cc.Class({
             default: 'burger',
             tooltip: '食材名稱，需與 OrderManager RECIPES 中的 recipe 一致',
         },
+
+        // 直接在編輯器把那張圖拖過來
+        foodSpriteFrame: {
+            default: null,
+            type: cc.SpriteFrame,
+            tooltip: '拖曳對應的食材圖片到這裡',
+        },
+
+        foodScale: {
+            default: 0.5, // 預設 0.5，之後可以在編輯器調整
+            tooltip: '食物被拿出來時的縮放比例',
+        },
     },
 
     // ─────────────────────────────────────────────
@@ -29,16 +41,18 @@ const FoodBox = cc.Class({
 
     /** 空手互動：產生新食材給玩家，不需要站台上有物品 */
     _onPickup(player) {
-        cc.log('[FoodBox] 產生食材:', 'noncooked_' + this.foodType);
+        const itemNode = new cc.Node('noncooked_' + this.foodType);
+        
+        // 先給一個預設大小
+        itemNode.width = 100;
+        itemNode.height = 100;
 
-        // 建立一個代表食材的節點，名稱加上 noncooked_ 前綴
-        const itemNode  = new cc.Node('noncooked_' + this.foodType);
-        itemNode.width  = 40;
-        itemNode.height = 40;
-
-        // 加上純色 Sprite 作為視覺佔位（之後換成正式圖片）
+        // --- 強制套用你的縮放 ---
+        itemNode.setScale(this.foodScale); 
+        
         const sprite = itemNode.addComponent(cc.Sprite);
-        sprite.spriteFrame = null;
+        sprite.spriteFrame = this.foodSpriteFrame;
+        sprite.sizeMode = cc.Sprite.SizeMode.CUSTOM;
 
         player.pickUp(itemNode);
     },
