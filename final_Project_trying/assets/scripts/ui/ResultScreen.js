@@ -74,11 +74,13 @@ const ResultScreen = cc.Class({
     onDestroy() {
         EventBus.off('game:end', this._onGameEnd, this);
 
-        if (this.replayButton) {
+        // scene unload 時子節點可能已經被先銷毀，這時 this.replayButton 仍非 null 但
+        // .node 已 invalid。要用 cc.isValid 多檢查一層才不會吃 TypeError。
+        if (cc.isValid(this.replayButton) && cc.isValid(this.replayButton.node)) {
             this.replayButton.node.off('click', this._onReplay, this);
             this.replayButton.node.off(cc.Node.EventType.TOUCH_END, this._onReplay, this);
         }
-        if (this.menuButton) {
+        if (cc.isValid(this.menuButton) && cc.isValid(this.menuButton.node)) {
             this.menuButton.node.off('click', this._onMenu, this);
             this.menuButton.node.off(cc.Node.EventType.TOUCH_END, this._onMenu, this);
         }
