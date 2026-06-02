@@ -15,6 +15,15 @@ cc.Class({
         window._nmRole = null;
         window._nmRoomCode = null;
         window._nmReady = false;
+
+        // addPersistRootNode 要求 node 必須是 Scene 的根節點，
+        // 而編輯器裡 NetworkManager 被放在 Canvas 底下，所以這裡 reparent 到 scene root，
+        // 否則切場景時 NM 會跟著被銷毀，導致 Photon 連線 / 房間狀態遺失。
+        const scene = cc.director.getScene();
+        if (scene && this.node.parent !== scene) {
+            this.node.removeFromParent(false);
+            this.node.parent = scene;
+        }
         cc.log('【NetworkManager onLoad】設為 persistent');
         cc.game.addPersistRootNode(this.node);
 
