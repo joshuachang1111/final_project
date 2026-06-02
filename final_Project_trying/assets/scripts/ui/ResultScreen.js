@@ -113,12 +113,12 @@ const ResultScreen = cc.Class({
     _onReplay() {
         if (this._clicked) return;   // 'click' 跟 TOUCH_END 雙保險可能會 double-fire
         this._clicked = true;
-        cc.log('[ResultScreen] 再玩一次 clicked');
+        cc.log('[ResultScreen] 再玩一次 clicked → 回選關');
         // NetworkManager 的 _gameStarted 從上一局還留著 true，下一次 raiseEvent
         // code 2 會被當成重複觸發直接 ignore，必須先 reset。
         if (window._nm) window._nm._gameStarted = false;
         EventBus.clear();
-        cc.director.loadScene('game');
+        cc.director.loadScene('levelselect');
     },
 
     _onMenu() {
