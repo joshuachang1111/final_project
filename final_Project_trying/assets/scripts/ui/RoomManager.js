@@ -175,30 +175,33 @@ cc.Class({
 
     _onRoomCreated: function(msg) {
         cc.log('[RoomManager] 房間已建立，代碼=', msg.code);
+        cc.log('[RoomManager] roomCodeLabel=', this.roomCodeLabel);
 
         if (this.hostPanel) this.hostPanel.active = true;
 
         // 設定房間代碼
         if (this.roomCodeLabel) {
-            const label = this.roomCodeLabel.getComponent(cc.Label) || this.roomCodeLabel;
-            if (label && label.string !== undefined) {
-                label.string = msg.code;
-                cc.log('[RoomManager] 已設定房間代碼:', msg.code);
+            cc.log('[RoomManager] 嘗試設定房間代碼...');
+            if (this.roomCodeLabel.getComponent) {
+                const label = this.roomCodeLabel.getComponent(cc.Label);
+                cc.log('[RoomManager] Label component:', !!label);
+                if (label) {
+                    label.string = msg.code;
+                    cc.log('[RoomManager] 已設定房間代碼:', msg.code);
+                }
             }
         }
 
         // 設定等待文字
         if (this.waitingLabel) {
-            const label = this.waitingLabel.getComponent(cc.Label) || this.waitingLabel;
-            if (label && label.string !== undefined) {
-                label.string = '等待另一位玩家加入...';
-            }
+            const label = this.waitingLabel.getComponent(cc.Label);
+            if (label) label.string = '等待另一位玩家加入...';
         }
 
         // 設定房主名字
         if (this.hostNameLabel) {
-            const label = this.hostNameLabel.getComponent(cc.Label) || this.hostNameLabel;
-            if (label && label.string !== undefined) {
+            const label = this.hostNameLabel.getComponent(cc.Label);
+            if (label) {
                 const hostName = (window._fbUser && window._fbUser.displayName) || '玩家1';
                 label.string = '🍳 ' + hostName;
                 cc.log('[RoomManager] 已設定房主名字:', hostName);
@@ -207,8 +210,9 @@ cc.Class({
 
         // 隱藏 Guest 名字
         if (this.guestNameLabel) {
-            const node = this.guestNameLabel.node || this.guestNameLabel;
-            if (node && node.active !== undefined) node.active = false;
+            if (this.guestNameLabel.active !== undefined) {
+                this.guestNameLabel.active = false;
+            }
         }
 
         if (this.startBtn) this.startBtn.active = false;

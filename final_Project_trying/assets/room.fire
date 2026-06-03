@@ -410,22 +410,22 @@
       "__id__": 33
     },
     "roomCodeLabel": {
-      "__id__": 11
+      "__id__": 10
     },
     "waitingLabel": {
-      "__id__": 13
+      "__id__": 12
     },
     "codeInput": {
       "__id__": 44
     },
     "joinErrorLabel": {
-      "__id__": 46
+      "__id__": 45
     },
     "hostNameLabel": {
-      "__id__": 15
+      "__id__": 14
     },
     "guestNameLabel": {
-      "__id__": 17
+      "__id__": 16
     },
     "startBtn": {
       "__id__": 18
