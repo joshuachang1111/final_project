@@ -28,6 +28,8 @@ cc.Class({
     extends: cc.Component,
 
     properties: {
+        hostPanel:      { default: null, type: cc.Node },
+        joinPanel:      { default: null, type: cc.Node },
         roomCodeLabel:  { default: null, type: cc.Label },
         hostNameLabel:  { default: null, type: cc.Label },
         waitingLabel:   { default: null, type: cc.Label },
@@ -50,8 +52,14 @@ cc.Class({
 
         cc.log('[RoomManager] _showRolePanel, isHost=', isHost, 'isGuest=', isGuest);
 
-        // 這裡假設你有 hostPanel 和 joinPanel
-        // 如果沒有，先註解掉，之後在編輯器綁定
+        if (this.hostPanel) {
+            this.hostPanel.active = isHost;
+            cc.log('[RoomManager] ✓ hostPanel.active=', isHost);
+        }
+        if (this.joinPanel) {
+            this.joinPanel.active = isGuest;
+            cc.log('[RoomManager] ✓ joinPanel.active=', isGuest);
+        }
     },
 
     _initFirebase: function() {
