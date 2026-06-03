@@ -1122,7 +1122,7 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 97.87,
+      "width": 120,
       "height": 50.4
     },
     "_anchorPoint": {
@@ -1174,8 +1174,8 @@
     ],
     "_srcBlendFactor": 770,
     "_dstBlendFactor": 771,
-    "_string": "Label",
-    "_N$string": "Label",
+    "_string": "排行榜",
+    "_N$string": "排行榜",
     "_fontSize": 40,
     "_lineHeight": 40,
     "_enableWrapText": true,

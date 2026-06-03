@@ -32,13 +32,26 @@ cc.Class({
         hostNameLabel:  { default: null, type: cc.Label },
         waitingLabel:   { default: null, type: cc.Label },
         startBtn:       { default: null, type: cc.Button },
+        codeInput:      { default: null, type: cc.EditBox },
+        joinErrorLabel: { default: null, type: cc.Label },
     },
 
     onLoad: function() {
-        cc.log('[RoomManager] onLoad');
+        cc.log('[RoomManager] onLoad, role=', window._nmRole);
 
         this._initFirebase();
+        this._showRolePanel();
         this.scheduleOnce(() => this._setupNetworkCallbacks(), 0);
+    },
+
+    _showRolePanel: function() {
+        const isHost = window._nmRole === 'host';
+        const isGuest = window._nmRole === 'guest';
+
+        cc.log('[RoomManager] _showRolePanel, isHost=', isHost, 'isGuest=', isGuest);
+
+        // 這裡假設你有 hostPanel 和 joinPanel
+        // 如果沒有，先註解掉，之後在編輯器綁定
     },
 
     _initFirebase: function() {
@@ -67,6 +80,14 @@ cc.Class({
         nm.on('guest_waiting', function() { self._onGuestWaiting.call(self); });
         nm.on('start_game', function(msg) { self._onStartGameEvent.call(self, msg); });
         nm.on('player_disconnected', function() { self._onPlayerDisconnected.call(self); });
+
+        // 如果是 Host，立即建立房間
+        if (window._nmRole === 'host') {
+            cc.log('[RoomManager] Host role detected, creating room...');
+            nm.createRoom();
+        } else {
+            cc.log('[RoomManager] Not host, waiting for join input');
+        }
     },
 
     _onRoomCreated: function(msg) {
@@ -92,7 +113,7 @@ cc.Class({
         }
     },
 
-    _onGuestJoined: function(msg) {
+    _onGuestJoined: function() {
         cc.log('[RoomManager] 玩家已加入');
 
         if (this.waitingLabel) {
@@ -104,7 +125,7 @@ cc.Class({
         }
     },
 
-    _onGuestWaiting: function(msg) {
+    _onGuestWaiting: function() {
         cc.log('[RoomManager] Guest 進入等待狀態');
 
         if (this.waitingLabel) {
@@ -129,6 +150,22 @@ cc.Class({
         if (window._nmRole === 'guest') return;
         cc.log('[RoomManager] Host 開始按鈕被點擊');
         cc.director.loadScene('levelselect');
+    },
+
+    onConfirmJoin: function() {
+        const code = this.codeInput ? this.codeInput.string.trim() : '';
+        if (!code || code.length !== 4) {
+            if (this.joinErrorLabel) {
+                this.joinErrorLabel.string = '請輸入 4 位代碼';
+            }
+            return;
+        }
+
+        cc.log('[RoomManager] Guest 加入房間，代碼=', code);
+        const nm = window._nm;
+        if (nm) {
+            nm.joinRoom(code);
+        }
     },
 
     onBack: function() {

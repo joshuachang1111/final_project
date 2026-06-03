@@ -124,18 +124,14 @@ cc.Class({
     // 建立房間 - 跳轉到 room.fire
     onCreateRoom() {
         cc.log('[MenuManager] 建立房間按鈕被點擊');
-        const nm = window._nm;
-        if (!nm || !cc.isValid(nm.node)) {
-            cc.error('[MenuManager] NetworkManager 不存在或已銷毀');
-            return;
-        }
-        nm.createRoom();
+        window._nmRole = 'host';
         cc.director.loadScene('room');
     },
 
     // 加入房間 - 跳轉到 room.fire
     onJoinRoomBtn() {
         cc.log('[MenuManager] 加入房間按鈕被點擊');
+        window._nmRole = 'guest';
         cc.director.loadScene('room');
     },
 
