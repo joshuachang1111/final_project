@@ -84,18 +84,12 @@ cc.Class({
 
     onLoad: function() {
         cc.log('[RoomManager] onLoad START');
-        cc.log('[RoomManager] roomCodeLabel=', this.roomCodeLabel);
-        cc.log('[RoomManager] hostPanel=', this.hostPanel);
-        cc.log('[RoomManager] waitingLabel=', this.waitingLabel);
-        cc.log('[RoomManager] hostNameLabel=', this.hostNameLabel);
 
         this._initFirebase();
 
-        // 如果 Inspector 沒綁定，嘗試自動尋找
-        if (!this.roomCodeLabel || !this.hostPanel) {
-            cc.log('[RoomManager] 開始自動尋找節點...');
-            this._autoFindNodes();
-        }
+        // 強制執行自動尋找節點（Cocos Creator 2.x Inspector 綁定有時會失效）
+        this._autoFindNodes();
+        cc.log('[RoomManager] 節點尋找完成 - roomCodeLabel=', !!this.roomCodeLabel);
 
         if (this.joinPanel) this.joinPanel.active = false;
         if (this.startBtn) this.startBtn.active = false;
