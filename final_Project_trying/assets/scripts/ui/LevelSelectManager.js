@@ -53,24 +53,17 @@ cc.Class({
         cc.sys.localStorage.setItem('playerRole', 'host');
 
         const nm = window._nm;
-        cc.log('【LevelSelectManager】nm=', nm ? '存在' : '不存在');
-        if (nm) {
-            cc.log('【LevelSelectManager】呼叫 nm.startGame(', levelId, ')');
+        const sceneName = LEVEL_SCENE_MAP[levelId];
+
+        if (nm && sceneName) {
+            cc.log('【LevelSelectManager】Host 和 Guest 同時進遊戲');
+
+            // Host 和 Guest 同時進遊戲（同時 loadScene，而不是 Host 延遲）
             nm.startGame(levelId);
-            const sceneName = LEVEL_SCENE_MAP[levelId];
-            if (sceneName) {
-                this.scheduleOnce(() => {
-                    cc.director.loadScene(sceneName);
-                }, 0.5);
-            }
-        } else {
+            cc.director.loadScene(sceneName);
+        } else if (sceneName) {
             cc.log('警告：NetworkManager 不存在，直接進遊戲');
-            const sceneName = LEVEL_SCENE_MAP[levelId];
-            if (sceneName) {
-                this.scheduleOnce(() => {
-                    cc.director.loadScene(sceneName);
-                }, 0.5);
-            }
+            cc.director.loadScene(sceneName);
         }
     },
 
