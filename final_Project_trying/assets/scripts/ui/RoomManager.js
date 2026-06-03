@@ -98,6 +98,7 @@ cc.Class({
         nm.on('room_created', function(msg) { self._onRoomCreated.call(self, msg); });
         nm.on('guest_joined', function(msg) { self._onGuestJoined.call(self, msg); });
         nm.on('guest_waiting', function() { self._onGuestWaiting.call(self); });
+        nm.on('host_info', function(msg) { self._onHostInfo.call(self, msg); });
         nm.on('start_game', function(msg) { self._onStartGameEvent.call(self, msg); });
         nm.on('player_disconnected', function() { self._onPlayerDisconnected.call(self); });
         nm.on('error', function(msg) { self._onNetworkError.call(self, msg); });
@@ -175,6 +176,16 @@ cc.Class({
 
         if (this.waitingLabel) {
             this.waitingLabel.string = '等待房主開始遊戲...';
+        }
+    },
+
+    _onHostInfo: function(msg) {
+        cc.log('[RoomManager] 收到房主資訊，名字=', msg.name);
+
+        // Guest 端收到 host 名字，更新 hostNameLabel
+        if (this.hostNameLabel && msg && msg.name) {
+            this.hostNameLabel.string = '🍳 ' + msg.name;
+            cc.log('[RoomManager] ✓ 已設定房主名字:', msg.name);
         }
     },
 
