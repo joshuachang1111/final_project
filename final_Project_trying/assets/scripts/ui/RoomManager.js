@@ -221,6 +221,20 @@ cc.Class({
         }
     },
 
+    _findNodeByName: function(node, name, depth) {
+        if (!node) return null;
+        depth = depth || 0;
+        if (depth > 10) return null; // 防止無限遞迴
+
+        if (node.name === name) return node;
+
+        for (let i = 0; i < node.children.length; i++) {
+            const found = this._findNodeByName(node.children[i], name, depth + 1);
+            if (found) return found;
+        }
+        return null;
+    },
+
     _onRoomCreated: function(msg) {
         cc.log('[RoomManager] 房間已建立，代碼=', msg.code);
 
@@ -229,15 +243,13 @@ cc.Class({
         let hostNameNode = this._hostNameLabel;
         let waitingNode = this._waitingLabel;
 
-        // 方案 B: 如果快取失敗，直接從 Canvas 逐層查找
+        // 方案 B: 如果快取失敗，深度搜索場景樹
         if (!roomCodeNode) {
-            const hostPanel = this.node.getChildByName('hostPanel');
-            if (hostPanel) {
-                roomCodeNode = hostPanel.getChildByName('roomCodeLabel');
-                hostNameNode = hostPanel.getChildByName('hostNameLabel');
-                waitingNode = hostPanel.getChildByName('WaitingLabel');
-                cc.log('[RoomManager] 從 Canvas 重新找到 hostPanel');
-            }
+            cc.log('[RoomManager] 開始深度搜索 roomCodeLabel...');
+            roomCodeNode = this._findNodeByName(this.node, 'roomCodeLabel');
+            hostNameNode = this._findNodeByName(this.node, 'hostNameLabel');
+            waitingNode = this._findNodeByName(this.node, 'WaitingLabel');
+            cc.log('[RoomManager] 深度搜索完成, roomCodeNode=', !!roomCodeNode);
         }
 
         // 設置房間代碼
@@ -246,11 +258,7 @@ cc.Class({
             if (label) {
                 label.string = String(msg.code);
                 cc.log('[RoomManager] ✓ 已設定房間代碼:', msg.code);
-            } else {
-                cc.log('[RoomManager] roomCodeNode 無 Label component');
             }
-        } else {
-            cc.log('[RoomManager] roomCodeNode 為 null');
         }
 
         // 設置等待文字
