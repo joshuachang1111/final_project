@@ -15,6 +15,7 @@
  */
 
 const EventBus = require('../core/EventBus');
+const LeaderboardManager = require('../core/LeaderboardManager');
 
 const ResultScreen = cc.Class({
     extends: cc.Component,
@@ -116,6 +117,11 @@ const ResultScreen = cc.Class({
             cc.log('[ResultScreen] panel 已 active, role=', window._nmRole);
         }
 
+        // Host 上傳分數到排行榜（只有 Host 上傳，避免重複）
+        if (isHost && window._fbUser) {
+            this._submitScoreToLeaderboard(data.score);
+        }
+
         // Guest 只看不能按，隱藏按鈕
         if (!isHost) {
             if (this.replayButton && this.replayButton.node) {
@@ -125,6 +131,30 @@ const ResultScreen = cc.Class({
                 this.menuButton.node.active = false;
             }
         }
+    },
+
+    _submitScoreToLeaderboard(score) {
+        // 初始化 LeaderboardManager（如果還沒初始化）
+        if (!LeaderboardManager._db) {
+            LeaderboardManager.init();
+        }
+
+        const level = cc.sys.localStorage.getItem('selectedLevel') || 'unknown';
+        const playerName = (window._fbUser && window._fbUser.displayName) || '訪客';
+        const uid = (window._fbUser && window._fbUser.uid) || 'guest_' + Date.now();
+
+        LeaderboardManager.submitScore({
+            playerName: playerName,
+            uid: uid,
+            score: score,
+            level: level,
+        }).then(success => {
+            if (success) {
+                cc.log('[ResultScreen] 分數已上傳到排行榜');
+            } else {
+                cc.warn('[ResultScreen] 分數上傳失敗');
+            }
+        });
     },
 
     // ─────────────────────────────────────────────

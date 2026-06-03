@@ -1,3 +1,5 @@
+const LeaderboardManager = require('../core/LeaderboardManager');
+
 const FIREBASE_CONFIG = {
     apiKey:            'AIzaSyAJKvWVAepCItXJxTpj5LKohYunVr1K1xM',
     authDomain:        'overcook-37ac5.firebaseapp.com',
@@ -35,13 +37,24 @@ cc.Class({
         nicknamePanel:  { default: null, type: cc.Node   }, // 彈出面板
         nicknameInput:  { default: null, type: cc.EditBox },
         nicknameError:  { default: null, type: cc.Label  },
+
+        // ── 排行榜 ──────────────────────────────────
+        leaderboardBtn:    { default: null, type: cc.Node }, // 排行榜按鈕
+        leaderboardPanel:  { default: null, type: cc.Node }, // 排行榜面板，預設隱藏
+        leaderboardContent: { default: null, type: cc.Node }, // ScrollView 的 content
     },
 
     onLoad() {
         // 確保彈出面板預設都是隱藏的
         if (this.nicknamePanel) this.nicknamePanel.active = false;
+        if (this.leaderboardPanel) this.leaderboardPanel.active = false;
         if (this.startBtn)      this.startBtn.active      = false;
         if (this.guestNameLabel) this.guestNameLabel.node.active = false;
+
+        // 綁定排行榜按鈕
+        if (this.leaderboardBtn) {
+            this.leaderboardBtn.on('click', this._onLeaderboardBtnClick, this);
+        }
 
         this._initFirebase();
         this._showMain();
@@ -266,5 +279,68 @@ cc.Class({
     // 選角色按鈕
     onCharSelect() {
         cc.director.loadScene('charselect');
+    },
+
+    // ── 排行榜 ──────────────────────────────────
+
+    _onLeaderboardBtnClick() {
+        cc.log('[MenuManager] 排行榜按鈕被點擊');
+        if (this.leaderboardPanel) {
+            this.leaderboardPanel.active = true;
+            this._loadLeaderboard();
+        }
+    },
+
+    onCloseLeaderboard() {
+        if (this.leaderboardPanel) {
+            this.leaderboardPanel.active = false;
+        }
+    },
+
+    async _loadLeaderboard() {
+        // 初始化 LeaderboardManager
+        if (!LeaderboardManager._db) {
+            LeaderboardManager.init();
+        }
+
+        cc.log('[MenuManager] 加載排行榜...');
+        const leaderboard = await LeaderboardManager.fetchTopScores(10);
+
+        if (!this.leaderboardContent) {
+            cc.warn('[MenuManager] leaderboardContent 未綁定');
+            return;
+        }
+
+        // 清空舊的內容
+        this.leaderboardContent.removeAllChildren();
+
+        if (leaderboard.length === 0) {
+            const emptyLabel = new cc.Node('empty');
+            const label = emptyLabel.addComponent(cc.Label);
+            label.string = '暫無記錄';
+            emptyLabel.parent = this.leaderboardContent;
+            emptyLabel.y = -20;
+            return;
+        }
+
+        // 動態生成排行榜列表
+        leaderboard.forEach((item, index) => {
+            const itemNode = new cc.Node(`rank_${item.rank}`);
+            itemNode.height = 40;
+
+            const label = itemNode.addComponent(cc.Label);
+            label.string = `${item.rank}. ${item.name} ── ${item.level} ── ${item.score}分`;
+            label.fontSize = 16;
+            label.lineHeight = 40;
+
+            itemNode.parent = this.leaderboardContent;
+            itemNode.y = -(index * 45 + 20);
+        });
+
+        // 調整 content 高度
+        const contentHeight = Math.max(leaderboard.length * 45 + 40, 300);
+        this.leaderboardContent.height = contentHeight;
+
+        cc.log('[MenuManager] 排行榜加載完成，共', leaderboard.length, '項');
     },
 });
