@@ -175,6 +175,17 @@ InputHandler → PlayerController → AnimationController
 - **角色網路同步**：EV_MOVE payload 夾帶 `char` 欄位（每幀），對方收到後呼叫 `loadCharacter`
   - Host/Guest 各自顯示自己選擇的角色
   - `AnimationController._loadedChar` 防重複載入
+- **房間等待室**（朋友實作）：room.fire + RoomManager.js
+  - 建立/加入房間改為跳轉 room.fire（MenuManager 不再自行管理房間 UI）
+  - Host 點「確認開始」才廣播 start_game，防止場景衝突
+- **排行榜系統**（朋友實作）：leaderboard.fire + LeaderboardManager.js
+  - Firebase Firestore 儲存分數，只有 Host 上傳
+  - 獨立場景 leaderboard.fire，可從主選單進入
+- **結算場景重構**（朋友實作）：result.fire + ResultSceneManager.js
+  - 獨立 result.fire，不再依賴 game.fire 內的 ResultScreen
+- **player_ready 同步**（朋友實作）：EV code 100
+  - 雙方進遊戲後各發送 player_ready，確認兩端都進場再開始計時，避免場景衝突
+- **menu.fire 加回選角色按鈕**（BtnCharSelect → onCharSelect）
 
 ### 🚧 尚缺
 - 食材 Sprite 圖片（目前是空 Sprite 佔位）
@@ -182,6 +193,7 @@ InputHandler → PlayerController → AnimationController
 - 斷線處理（遊戲中）
 - `window._selectedLevel` 在 GameManager 中尚未使用（關卡差異化待實作）
 - 技能系統後端邏輯（charselect 介面已完成，技能效果尚未接入遊戲）
+- 排行榜 UI 節點綁定尚需在 Cocos Creator 編輯器完成
 
 ### Sprite Sheet 製作流程（備忘）
 ```
