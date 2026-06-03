@@ -47,33 +47,39 @@ cc.Class({
 
     _autoFindNodes: function() {
         cc.log('[RoomManager] 開始自動尋找節點...');
+        cc.log('[RoomManager] this.node=', this.node ? this.node.name : 'null');
+
+        // 列出 this.node 的所有子節點
+        if (this.node && this.node.children) {
+            cc.log('[RoomManager] this.node 的子節點數量:', this.node.children.length);
+            for (let i = 0; i < Math.min(this.node.children.length, 10); i++) {
+                cc.log('[RoomManager]   子節點', i, ':', this.node.children[i].name);
+            }
+        }
 
         try {
             const hostPanel = this.node.getChildByName('hostPanel');
+            cc.log('[RoomManager] 查找 hostPanel 結果:', !!hostPanel);
             if (hostPanel) {
                 this.hostPanel = hostPanel;
                 cc.log('[RoomManager] ✓ 找到 hostPanel');
+
+                this.roomCodeLabel = this.hostPanel.getChildByName('roomCodeLabel');
+                this.waitingLabel = this.hostPanel.getChildByName('WaitingLabel') || this.hostPanel.getChildByName('waitingLabel');
+                this.hostNameLabel = this.hostPanel.getChildByName('hostNameLabel');
+                this.guestNameLabel = this.hostPanel.getChildByName('guestNameLabel');
+                cc.log('[RoomManager] ✓ 尋找 hostPanel 的子節點完成');
+                cc.log('[RoomManager]   roomCodeLabel=', !!this.roomCodeLabel);
+                cc.log('[RoomManager]   waitingLabel=', !!this.waitingLabel);
+                cc.log('[RoomManager]   hostNameLabel=', !!this.hostNameLabel);
+            } else {
+                cc.error('[RoomManager] hostPanel 未找到！');
             }
 
             const joinPanel = this.node.getChildByName('joinPanel');
             if (joinPanel) {
                 this.joinPanel = joinPanel;
                 cc.log('[RoomManager] ✓ 找到 joinPanel');
-            }
-
-            if (this.hostPanel) {
-                this.roomCodeLabel = this.hostPanel.getChildByName('roomCodeLabel');
-                this.waitingLabel = this.hostPanel.getChildByName('WaitingLabel') || this.hostPanel.getChildByName('waitingLabel');
-                this.hostNameLabel = this.hostPanel.getChildByName('hostNameLabel');
-                this.guestNameLabel = this.hostPanel.getChildByName('guestNameLabel');
-                cc.log('[RoomManager] ✓ 尋找 hostPanel 的子節點完成');
-            }
-
-            if (this.joinPanel) {
-                const codeInputNode = this.joinPanel.getChildByName('codeInput');
-                this.codeInput = codeInputNode ? codeInputNode.getComponent(cc.EditBox) : null;
-                this.joinErrorLabel = this.joinPanel.getChildByName('joinErrorLabel');
-                cc.log('[RoomManager] ✓ 尋找 joinPanel 的子節點完成');
             }
 
             cc.log('[RoomManager] 自動尋找節點完成！');
