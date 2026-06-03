@@ -75,12 +75,16 @@ cc.Class({
             nm.startGame(levelId);
             cc.log('【LevelSelectManager】nm.startGame 已呼叫');
 
-            // 馬上進遊戲
-            cc.log('【LevelSelectManager】Host 進遊戲，場景名稱=', sceneName);
-            cc.director.loadScene(sceneName);
+            // 延遲進遊戲，確保 levelselect 完全加載
+            this.scheduleOnce(() => {
+                cc.log('【LevelSelectManager】延遲後進遊戲，場景名稱=', sceneName);
+                cc.director.loadScene(sceneName);
+            }, 0.3);
         } else if (sceneName) {
             cc.log('警告：NetworkManager 不存在，直接進遊戲');
-            cc.director.loadScene(sceneName);
+            this.scheduleOnce(() => {
+                cc.director.loadScene(sceneName);
+            }, 0.3);
         }
     },
 
