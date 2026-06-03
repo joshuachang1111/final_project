@@ -93,18 +93,20 @@ cc.Class({
 
         this._initFirebase();
 
-        // 直接從 this.node（Canvas）查找關鍵節點
-        const hostPanel = this.node.getChildByName('hostPanel');
-        const joinPanel = this.node.getChildByName('joinPanel');
+        // 遞迴搜索整個場景找 hostPanel
+        const hostPanel = this._findNode(this.node, 'hostPanel');
+        const joinPanel = this._findNode(this.node, 'joinPanel');
+        const startBtn = this._findNode(this.node, 'startBtn');
 
         cc.log('[RoomManager] hostPanel=', !!hostPanel);
         cc.log('[RoomManager] joinPanel=', !!joinPanel);
+        cc.log('[RoomManager] startBtn=', !!startBtn);
 
         // 快取節點
         if (hostPanel) {
             this._hostPanel = hostPanel;
             this._roomCodeLabel = hostPanel.getChildByName('roomCodeLabel');
-            this._waitingLabel = hostPanel.getChildByName('WaitingLabel');
+            this._waitingLabel = hostPanel.getChildByName('WaitingLabel') || hostPanel.getChildByName('waitingLabel');
             this._hostNameLabel = hostPanel.getChildByName('hostNameLabel');
             this._guestNameLabel = hostPanel.getChildByName('guestNameLabel');
 
@@ -116,7 +118,12 @@ cc.Class({
 
         if (joinPanel) {
             this._joinPanel = joinPanel;
-            this._startBtn = this.node.getChildByName('startBtn');
+            const codeInputNode = joinPanel.getChildByName('codeInput');
+            this._codeInput = codeInputNode ? codeInputNode.getComponent(cc.EditBox) : null;
+        }
+
+        if (startBtn) {
+            this._startBtn = startBtn;
         }
 
         if (this._hostPanel) this._hostPanel.active = true;
@@ -129,6 +136,18 @@ cc.Class({
 
         this.scheduleOnce(() => this._setupNetworkCallbacks(), 0);
         cc.log('[RoomManager] onLoad END');
+    },
+
+    // 遞迴搜索節點
+    _findNode: function(parent, nodeName) {
+        if (!parent) return null;
+        if (parent.name === nodeName) return parent;
+
+        for (let i = 0; i < parent.children.length; i++) {
+            const found = this._findNode(parent.children[i], nodeName);
+            if (found) return found;
+        }
+        return null;
     },
 
     // 緩存節點引用，以備後用
