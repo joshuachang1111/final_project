@@ -35,13 +35,22 @@ cc.Class({
     properties: {
         hostPanel:      { default: null, type: cc.Node },
         joinPanel:      { default: null, type: cc.Node },
-        roomCodeLabel:  { default: null, type: cc.Label },
-        waitingLabel:   { default: null, type: cc.Label },
+        roomCodeLabel:  { default: null, type: cc.Node }, // 支持綁定 Node 或 Label
+        waitingLabel:   { default: null, type: cc.Node }, // 支持綁定 Node 或 Label
         codeInput:      { default: null, type: cc.EditBox },
-        joinErrorLabel: { default: null, type: cc.Label },
-        hostNameLabel:  { default: null, type: cc.Label },
-        guestNameLabel: { default: null, type: cc.Label },
+        joinErrorLabel: { default: null, type: cc.Node }, // 支持綁定 Node 或 Label
+        hostNameLabel:  { default: null, type: cc.Node }, // 支持綁定 Node 或 Label
+        guestNameLabel: { default: null, type: cc.Node }, // 支持綁定 Node 或 Label
         startBtn:       { default: null, type: cc.Node },
+    },
+
+    // 輔助函數：自動獲取 Label 組件
+    _getLabel(node) {
+        if (!node) return null;
+        if (node.getComponent && node.getComponent(cc.Label)) {
+            return node.getComponent(cc.Label);
+        }
+        return node; // 如果本身是 Label component，直接返回
     },
 
     onLoad() {
@@ -121,56 +130,68 @@ cc.Class({
 
     _onConnecting() {
         cc.log('[RoomManager] 連線中...');
-        if (this.waitingLabel) this.waitingLabel.string = '連線中，請稍候...';
+        const label = this._getLabel(this.waitingLabel);
+        if (label) label.string = '連線中，請稍候...';
     },
 
     _onRoomCreated(msg) {
         cc.log('[RoomManager] 房間已建立，代碼=', msg.code);
-        cc.log('[RoomManager] roomCodeLabel=', !!this.roomCodeLabel, this.roomCodeLabel);
-        cc.log('[RoomManager] hostNameLabel=', !!this.hostNameLabel, this.hostNameLabel);
 
         if (this.hostPanel) this.hostPanel.active = true;
 
-        if (this.roomCodeLabel) {
-            this.roomCodeLabel.string = msg.code;
+        const codeLabel = this._getLabel(this.roomCodeLabel);
+        if (codeLabel) {
+            codeLabel.string = msg.code;
             cc.log('[RoomManager] 已設定房間代碼:', msg.code);
         } else {
             cc.error('[RoomManager] roomCodeLabel 未綁定！');
         }
 
-        if (this.waitingLabel) this.waitingLabel.string = '等待另一位玩家加入...';
+        const waitLabel = this._getLabel(this.waitingLabel);
+        if (waitLabel) waitLabel.string = '等待另一位玩家加入...';
 
-        if (this.hostNameLabel) {
+        const hostLabel = this._getLabel(this.hostNameLabel);
+        if (hostLabel) {
             const hostName = (window._fbUser && window._fbUser.displayName) || '玩家1';
-            this.hostNameLabel.string = '🍳 ' + hostName;
+            hostLabel.string = '🍳 ' + hostName;
             cc.log('[RoomManager] 已設定房主名字:', hostName);
         } else {
             cc.error('[RoomManager] hostNameLabel 未綁定！');
         }
 
-        if (this.guestNameLabel) this.guestNameLabel.node.active = false;
+        if (this.guestNameLabel) {
+            const guestNode = (this.guestNameLabel.node || this.guestNameLabel);
+            if (guestNode) guestNode.active = false;
+        }
         if (this.startBtn) this.startBtn.active = false;
     },
 
     _onGuestJoined(msg) {
         cc.log('[RoomManager] 玩家已加入');
         if (this.guestNameLabel) {
-            this.guestNameLabel.node.active = true;
-            this.guestNameLabel.string = '🍴 ' + (msg.name || '玩家2');
+            const guestNode = (this.guestNameLabel.node || this.guestNameLabel);
+            if (guestNode) guestNode.active = true;
+            const guestLabel = this._getLabel(this.guestNameLabel);
+            if (guestLabel) guestLabel.string = '🍴 ' + (msg.name || '玩家2');
         }
-        if (this.waitingLabel) this.waitingLabel.string = '玩家已加入！';
+        const waitLabel = this._getLabel(this.waitingLabel);
+        if (waitLabel) waitLabel.string = '玩家已加入！';
         if (this.startBtn) this.startBtn.active = true;
     },
 
     _onGuestWaiting(msg) {
         cc.log('[RoomManager] Guest 進入等待狀態');
         const guestName = msg.guestName || '玩家2';
-        if (this.hostNameLabel) this.hostNameLabel.string = '🍳 等待房主...';
+        const hostLabel = this._getLabel(this.hostNameLabel);
+        if (hostLabel) hostLabel.string = '🍳 等待房主...';
         if (this.guestNameLabel) {
-            this.guestNameLabel.node.active = true;
-            this.guestNameLabel.string = '🍴 ' + guestName;
+            const guestNode = (this.guestNameLabel.node || this.guestNameLabel);
+            if (guestNode) guestNode.active = true;
+            const guestLabel = this._getLabel(this.guestNameLabel);
+            if (guestLabel) guestLabel.string = '🍴 ' + guestName;
         }
-        if (this.waitingLabel) this.waitingLabel.string = '等待房主開始遊戲...';
+        const waitLabel = this._getLabel(this.waitingLabel);
+        if (waitLabel) waitLabel.string = '等待房主開始遊戲...';
         if (this.hostPanel) this.hostPanel.active = true;
         if (this.joinPanel) this.joinPanel.active = false;
         if (this.startBtn) this.startBtn.active = false;
@@ -178,7 +199,8 @@ cc.Class({
 
     _onHostInfo(msg) {
         cc.log('[RoomManager] 收到房主資訊');
-        if (this.hostNameLabel) this.hostNameLabel.string = '🍳 ' + (msg.name || '房主');
+        const hostLabel = this._getLabel(this.hostNameLabel);
+        if (hostLabel) hostLabel.string = '🍳 ' + (msg.name || '房主');
     },
 
     _onStartGameEvent(msg) {
@@ -193,8 +215,10 @@ cc.Class({
     _onError(msg) {
         cc.log('[RoomManager] 網路錯誤:', msg.message);
         if (this.joinErrorLabel) {
-            this.joinErrorLabel.node.active = true;
-            this.joinErrorLabel.string = msg.message;
+            const errorNode = (this.joinErrorLabel.node || this.joinErrorLabel);
+            if (errorNode && errorNode.active !== undefined) errorNode.active = true;
+            const errorLabel = this._getLabel(this.joinErrorLabel);
+            if (errorLabel) errorLabel.string = msg.message;
         }
     },
 
@@ -221,8 +245,10 @@ cc.Class({
         const code = this.codeInput ? this.codeInput.string.trim() : '';
         if (code.length !== 4 || isNaN(code)) {
             if (this.joinErrorLabel) {
-                this.joinErrorLabel.node.active = true;
-                this.joinErrorLabel.string = '請輸入 4 位數字代碼';
+                const errorNode = (this.joinErrorLabel.node || this.joinErrorLabel);
+                if (errorNode && errorNode.active !== undefined) errorNode.active = true;
+                const errorLabel = this._getLabel(this.joinErrorLabel);
+                if (errorLabel) errorLabel.string = '請輸入 4 位數字代碼';
             }
             return;
         }
