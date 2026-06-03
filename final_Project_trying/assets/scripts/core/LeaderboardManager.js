@@ -14,17 +14,28 @@ const LeaderboardManager = {
      * 需要先確保 Firebase 已初始化（firebase.initializeApp 已呼叫）
      */
     init() {
+        cc.log('[LeaderboardManager] 開始初始化...');
+        cc.log('[LeaderboardManager] typeof firebase=', typeof firebase);
+
         if (typeof firebase === 'undefined') {
             cc.error('[LeaderboardManager] Firebase SDK 未載入');
             return false;
         }
+
+        cc.log('[LeaderboardManager] typeof firebase.firestore=', typeof firebase.firestore);
         if (typeof firebase.firestore === 'undefined') {
             cc.error('[LeaderboardManager] Firestore SDK 未載入，請確保 firebase-firestore-compat.js 已加入');
             return false;
         }
-        this._db = firebase.firestore();
-        cc.log('[LeaderboardManager] Firestore 初始化成功');
-        return true;
+
+        try {
+            this._db = firebase.firestore();
+            cc.log('[LeaderboardManager] Firestore 初始化成功，_db=', !!this._db);
+            return true;
+        } catch (err) {
+            cc.error('[LeaderboardManager] 初始化失敗:', err.message);
+            return false;
+        }
     },
 
     /**
@@ -71,22 +82,26 @@ const LeaderboardManager = {
      * @returns {Array} 排行榜陣列，每項 { rank, name, score, level }
      */
     async fetchTopScores(limit = 10) {
+        cc.log('[LeaderboardManager] fetchTopScores called, _db=', !!this._db);
         if (!this._db) {
-            cc.warn('[LeaderboardManager] Firestore 未初始化，無法讀取排行榜');
+            cc.error('[LeaderboardManager] Firestore 未初始化，無法讀取排行榜');
             return [];
         }
 
         try {
-            cc.log('[LeaderboardManager] 查詢前', limit, '名...');
+            cc.log('[LeaderboardManager] 開始查詢前', limit, '名...');
 
             const snapshot = await this._db.collection('leaderboard')
                 .orderBy('score', 'desc')
                 .limit(limit)
                 .get();
 
+            cc.log('[LeaderboardManager] 查詢完成，文件數=', snapshot.size);
+
             const leaderboard = [];
             snapshot.forEach((doc, index) => {
                 const data = doc.data();
+                cc.log('[LeaderboardManager] 文件', index, ':', data);
                 leaderboard.push({
                     rank: index + 1,
                     name: data.name || '訪客',
@@ -95,10 +110,10 @@ const LeaderboardManager = {
                 });
             });
 
-            cc.log('[LeaderboardManager] 取得排行榜:', leaderboard);
+            cc.log('[LeaderboardManager] 取得排行榜:', JSON.stringify(leaderboard));
             return leaderboard;
         } catch (err) {
-            cc.error('[LeaderboardManager] 查詢失敗:', err.message);
+            cc.error('[LeaderboardManager] 查詢失敗:', err.message, err.code);
             return [];
         }
     },

@@ -167,10 +167,14 @@ const ResultSceneManager = cc.Class({
     },
 
     _onLeaderboard() {
-        cc.log('[ResultSceneManager] 查看排行榜');
+        cc.log('[ResultSceneManager] 查看排行榜 clicked');
+        cc.log('[ResultSceneManager] leaderboardPanel=', !!this.leaderboardPanel);
         if (this.leaderboardPanel) {
+            cc.log('[ResultSceneManager] 顯示 leaderboardPanel');
             this.leaderboardPanel.active = true;
             this._loadLeaderboard();
+        } else {
+            cc.error('[ResultSceneManager] leaderboardPanel 未綁定！');
         }
     },
 
@@ -181,15 +185,21 @@ const ResultSceneManager = cc.Class({
     },
 
     async _loadLeaderboard() {
+        cc.log('[ResultSceneManager] 開始加載排行榜...');
+
+        cc.log('[ResultSceneManager] LeaderboardManager._db=', !!LeaderboardManager._db);
         if (!LeaderboardManager._db) {
-            LeaderboardManager.init();
+            cc.log('[ResultSceneManager] 初始化 LeaderboardManager');
+            const initSuccess = LeaderboardManager.init();
+            cc.log('[ResultSceneManager] 初始化結果=', initSuccess);
         }
 
-        cc.log('[ResultSceneManager] 加載排行榜');
+        cc.log('[ResultSceneManager] 查詢排行榜...');
         const leaderboard = await LeaderboardManager.fetchTopScores(10);
+        cc.log('[ResultSceneManager] 查詢結果=', leaderboard);
 
         if (!this.leaderboardContent) {
-            cc.warn('[ResultSceneManager] leaderboardContent 未綁定');
+            cc.error('[ResultSceneManager] leaderboardContent 未綁定！');
             return;
         }
 
@@ -197,6 +207,7 @@ const ResultSceneManager = cc.Class({
         this.leaderboardContent.removeAllChildren();
 
         if (leaderboard.length === 0) {
+            cc.log('[ResultSceneManager] 排行榜為空');
             const emptyLabel = new cc.Node('empty');
             const label = emptyLabel.addComponent(cc.Label);
             label.string = '暫無記錄';
@@ -205,6 +216,7 @@ const ResultSceneManager = cc.Class({
         }
 
         // 動態生成排行榜
+        cc.log('[ResultSceneManager] 生成', leaderboard.length, '項排行榜');
         leaderboard.forEach((item, index) => {
             const itemNode = new cc.Node(`rank_${item.rank}`);
             itemNode.height = 40;
