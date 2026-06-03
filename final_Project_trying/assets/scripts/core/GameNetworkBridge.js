@@ -36,6 +36,7 @@ cc.Class({
         // 等待兩人都進場
         this._localReady = false;
         this._remoteReady = false;
+        this._gameStarted = false;
 
         // 延遲一幀，等所有 onLoad 完成後，發送「我已進場」信號
         this.scheduleOnce(() => {
@@ -57,7 +58,13 @@ cc.Class({
     },
 
     _checkBothReady() {
+        if (this._gameStarted) {
+            cc.log('[GameNetworkBridge] 遊戲已開始，忽略重複的 ready');
+            return;
+        }
+
         if (this._localReady && this._remoteReady) {
+            this._gameStarted = true;
             cc.log('[GameNetworkBridge] ✓ 兩人都已進場，開始遊戲');
             if (GameManager.instance) {
                 GameManager.instance.startGame();
