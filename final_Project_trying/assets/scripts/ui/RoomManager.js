@@ -93,13 +93,18 @@ cc.Class({
 
         this._initFirebase();
 
-        // 強制執行自動尋找節點（Cocos Creator 2.x Inspector 綁定有時會失效）
+        // 強制執行自動尋找節點
         this._autoFindNodes();
-        cc.log('[RoomManager] 節點尋找完成 - roomCodeLabel=', !!this.roomCodeLabel);
+
+        // 立即保存節點引用，避免後續查找失敗
+        this._cacheNodes();
 
         if (this.joinPanel) this.joinPanel.active = false;
         if (this.startBtn) this.startBtn.active = false;
-        if (this.hostPanel) this.hostPanel.active = true;
+        if (this.hostPanel) {
+            this.hostPanel.active = true;
+            cc.log('[RoomManager] hostPanel.active = true');
+        }
 
         if (this.startBtn) {
             this.startBtn.on('click', this._onStartGame, this);
@@ -107,6 +112,22 @@ cc.Class({
 
         this.scheduleOnce(() => this._setupNetworkCallbacks(), 0);
         cc.log('[RoomManager] onLoad END');
+    },
+
+    // 緩存節點引用，以備後用
+    _cacheNodes: function() {
+        if (!this._roomCodeLabelCache && this.roomCodeLabel) {
+            this._roomCodeLabelCache = this.roomCodeLabel;
+            cc.log('[RoomManager] ✓ 快取 roomCodeLabel');
+        }
+        if (!this._waitingLabelCache && this.waitingLabel) {
+            this._waitingLabelCache = this.waitingLabel;
+            cc.log('[RoomManager] ✓ 快取 waitingLabel');
+        }
+        if (!this._hostNameLabelCache && this.hostNameLabel) {
+            this._hostNameLabelCache = this.hostNameLabel;
+            cc.log('[RoomManager] ✓ 快取 hostNameLabel');
+        }
     },
 
     onDestroy: function() {
@@ -169,32 +190,33 @@ cc.Class({
     _onRoomCreated: function(msg) {
         cc.log('[RoomManager] 房間已建立，代碼=', msg.code);
 
-        // 安全地找到 hostPanel（用 this.node 作為基準，確保 this 上下文正確）
-        const hostPanel = this.hostPanel || (this.node && this.node.getChildByName('hostPanel'));
+        // 使用快取的節點引用（更穩定）
+        const roomCodeNode = this._roomCodeLabelCache || this.roomCodeLabel;
+        const waitingNode = this._waitingLabelCache || this.waitingLabel;
+        const hostNameNode = this._hostNameLabelCache || this.hostNameLabel;
 
-        if (!hostPanel) {
-            cc.error('[RoomManager] hostPanel 找不到！');
-            return;
-        }
-
-        hostPanel.active = true;
-
-        // 直接設置文字（使用已預先查找的 properties）
-        if (this.roomCodeLabel && this.roomCodeLabel.getComponent) {
-            const label = this.roomCodeLabel.getComponent(cc.Label);
+        // 設定房間代碼
+        if (roomCodeNode) {
+            const label = roomCodeNode.getComponent(cc.Label);
             if (label) {
                 label.string = msg.code;
                 cc.log('[RoomManager] ✓ 已設定房間代碼:', msg.code);
+            } else {
+                cc.log('[RoomManager] roomCodeNode 沒有 Label component');
             }
+        } else {
+            cc.log('[RoomManager] roomCodeNode 為 null');
         }
 
-        if (this.waitingLabel && this.waitingLabel.getComponent) {
-            const label = this.waitingLabel.getComponent(cc.Label);
+        // 設定等待文字
+        if (waitingNode) {
+            const label = waitingNode.getComponent(cc.Label);
             if (label) label.string = '等待另一位玩家加入...';
         }
 
-        if (this.hostNameLabel && this.hostNameLabel.getComponent) {
-            const label = this.hostNameLabel.getComponent(cc.Label);
+        // 設定房主名字
+        if (hostNameNode) {
+            const label = hostNameNode.getComponent(cc.Label);
             if (label) {
                 const hostName = (window._fbUser && window._fbUser.displayName) || '玩家1';
                 label.string = '🍳 ' + hostName;
@@ -202,10 +224,12 @@ cc.Class({
             }
         }
 
+        // 隱藏 Guest 名字
         if (this.guestNameLabel) {
             this.guestNameLabel.active = false;
         }
 
+        // 隱藏開始按鈕
         if (this.startBtn) this.startBtn.active = false;
     },
 
