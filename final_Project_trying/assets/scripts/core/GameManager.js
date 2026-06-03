@@ -136,6 +136,9 @@ const GameManager = cc.Class({
         this._phase = Phase.RESULT;
         GridSystem.reset();
         EventBus.emit('game:end', { score: this._score });
+        this.scheduleOnce(() => {
+            cc.director.loadScene('result');
+        }, 0.5);
     },
 });
 
