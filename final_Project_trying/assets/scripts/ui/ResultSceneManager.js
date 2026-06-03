@@ -121,10 +121,12 @@ const ResultSceneManager = cc.Class({
             uid: uid,
             score: score,
             level: level,
-        }).then(success => {
+        }).then((success) => {
             if (success) {
                 cc.log('[ResultSceneManager] 分數已上傳');
             }
+        }).catch((err) => {
+            cc.error('[ResultSceneManager] 上傳分數失敗:', err);
         });
     },
 
@@ -184,7 +186,7 @@ const ResultSceneManager = cc.Class({
         }
     },
 
-    async _loadLeaderboard() {
+    _loadLeaderboard() {
         cc.log('[ResultSceneManager] 開始加載排行榜...');
 
         cc.log('[ResultSceneManager] LeaderboardManager._db=', !!LeaderboardManager._db);
@@ -195,45 +197,48 @@ const ResultSceneManager = cc.Class({
         }
 
         cc.log('[ResultSceneManager] 查詢排行榜...');
-        const leaderboard = await LeaderboardManager.fetchTopScores(10);
-        cc.log('[ResultSceneManager] 查詢結果=', leaderboard);
+        LeaderboardManager.fetchTopScores(10).then((leaderboard) => {
+            cc.log('[ResultSceneManager] 查詢結果=', leaderboard);
 
-        if (!this.leaderboardContent) {
-            cc.error('[ResultSceneManager] leaderboardContent 未綁定！');
-            return;
-        }
+            if (!this.leaderboardContent) {
+                cc.error('[ResultSceneManager] leaderboardContent 未綁定！');
+                return;
+            }
 
-        // 清空舊的內容
-        this.leaderboardContent.removeAllChildren();
+            // 清空舊的內容
+            this.leaderboardContent.removeAllChildren();
 
-        if (leaderboard.length === 0) {
-            cc.log('[ResultSceneManager] 排行榜為空');
-            const emptyLabel = new cc.Node('empty');
-            const label = emptyLabel.addComponent(cc.Label);
-            label.string = '暫無記錄';
-            emptyLabel.parent = this.leaderboardContent;
-            return;
-        }
+            if (leaderboard.length === 0) {
+                cc.log('[ResultSceneManager] 排行榜為空');
+                const emptyLabel = new cc.Node('empty');
+                const label = emptyLabel.addComponent(cc.Label);
+                label.string = '暫無記錄';
+                emptyLabel.parent = this.leaderboardContent;
+                return;
+            }
 
-        // 動態生成排行榜
-        cc.log('[ResultSceneManager] 生成', leaderboard.length, '項排行榜');
-        leaderboard.forEach((item, index) => {
-            const itemNode = new cc.Node(`rank_${item.rank}`);
-            itemNode.height = 40;
+            // 動態生成排行榜
+            cc.log('[ResultSceneManager] 生成', leaderboard.length, '項排行榜');
+            leaderboard.forEach((item, index) => {
+                const itemNode = new cc.Node(`rank_${item.rank}`);
+                itemNode.height = 40;
 
-            const label = itemNode.addComponent(cc.Label);
-            label.string = `${item.rank}. ${item.name} ── ${item.level} ── ${item.score}分`;
-            label.fontSize = 16;
-            label.lineHeight = 40;
+                const label = itemNode.addComponent(cc.Label);
+                label.string = `${item.rank}. ${item.name} ── ${item.level} ── ${item.score}分`;
+                label.fontSize = 16;
+                label.lineHeight = 40;
 
-            itemNode.parent = this.leaderboardContent;
-            itemNode.y = -(index * 45 + 20);
+                itemNode.parent = this.leaderboardContent;
+                itemNode.y = -(index * 45 + 20);
+            });
+
+            const contentHeight = Math.max(leaderboard.length * 45 + 40, 300);
+            this.leaderboardContent.height = contentHeight;
+
+            cc.log('[ResultSceneManager] 排行榜加載完成');
+        }).catch((err) => {
+            cc.error('[ResultSceneManager] 加載排行榜失敗:', err);
         });
-
-        const contentHeight = Math.max(leaderboard.length * 45 + 40, 300);
-        this.leaderboardContent.height = contentHeight;
-
-        cc.log('[ResultSceneManager] 排行榜加載完成');
     },
 });
 
