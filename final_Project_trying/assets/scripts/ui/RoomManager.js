@@ -131,9 +131,9 @@ cc.Class({
             cc.log('[RoomManager] ✓ 已設定房主名字:', hostName);
         }
 
-        // 初始化 guestNameLabel 為空，等 guest 加入後才填充
+        // 初始化 guestNameLabel 隱藏，等 guest 加入後才顯示
         if (this.guestNameLabel) {
-            this.guestNameLabel.string = '';
+            this.guestNameLabel.node.active = false;
         }
 
         if (this.waitingLabel) {
@@ -159,6 +159,7 @@ cc.Class({
         if (window._nmRole === 'host') {
             if (this.guestNameLabel && msg && msg.name) {
                 this.guestNameLabel.string = '🧑 ' + msg.name;
+                this.guestNameLabel.node.active = true; // 顯示 guest 名字
                 cc.log('[RoomManager] ✓ 已設定 guest 名字:', msg.name);
             }
 
