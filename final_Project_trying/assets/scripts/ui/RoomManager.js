@@ -100,6 +100,7 @@ cc.Class({
         nm.on('guest_waiting', function() { self._onGuestWaiting.call(self); });
         nm.on('start_game', function(msg) { self._onStartGameEvent.call(self, msg); });
         nm.on('player_disconnected', function() { self._onPlayerDisconnected.call(self); });
+        nm.on('error', function(msg) { self._onNetworkError.call(self, msg); });
 
         // 如果是 Host，立即建立房間
         if (window._nmRole === 'host') {
@@ -188,6 +189,16 @@ cc.Class({
     _onPlayerDisconnected: function() {
         cc.log('[RoomManager] 玩家斷線，回到菜單');
         cc.director.loadScene('menu');
+    },
+
+    _onNetworkError: function(msg) {
+        cc.log('[RoomManager] 網路錯誤:', msg);
+
+        // Guest 加入失敗時顯示錯誤
+        if (window._nmRole === 'guest' && this.joinErrorLabel) {
+            this.joinErrorLabel.string = msg || '加入房間失敗，請檢查代碼';
+            cc.log('[RoomManager] ✗ Guest 加入失敗:', msg);
+        }
     },
 
     onStartGame: function() {
