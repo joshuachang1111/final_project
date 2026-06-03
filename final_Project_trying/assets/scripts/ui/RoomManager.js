@@ -46,53 +46,36 @@ cc.Class({
 
 
     _autoFindNodes: function() {
+        cc.log('[RoomManager] 開始自動尋找節點...');
+        cc.log('[RoomManager] this.node=', this.node.name);
+
         const hostPanel = this.node.getChildByName('hostPanel');
+        cc.log('[RoomManager] hostPanel search result:', !!hostPanel, hostPanel ? hostPanel.name : 'null');
+
         if (!this.hostPanel && hostPanel) {
             this.hostPanel = hostPanel;
-            cc.log('[RoomManager] 自動找到 hostPanel');
+            cc.log('[RoomManager] 設定 hostPanel 完成');
         }
 
         if (this.hostPanel) {
+            cc.log('[RoomManager] hostPanel 的子節點數量:', this.hostPanel.children.length);
+            this.hostPanel.children.forEach(function(child, idx) {
+                cc.log('[RoomManager]   子節點', idx, ':', child.name);
+            });
+
             if (!this.roomCodeLabel) {
                 const node = this.hostPanel.getChildByName('roomCodeLabel');
                 this.roomCodeLabel = node;
-                cc.log('[RoomManager] 自動找到 roomCodeLabel');
+                cc.log('[RoomManager] roomCodeLabel found:', !!node);
             }
-            if (!this.waitingLabel) {
-                const node = this.hostPanel.getChildByName('WaitingLabel') ||
-                            this.hostPanel.getChildByName('waitingLabel');
-                this.waitingLabel = node;
-                cc.log('[RoomManager] 自動找到 waitingLabel');
-            }
-            if (!this.hostNameLabel) {
-                const node = this.hostPanel.getChildByName('hostNameLabel');
-                this.hostNameLabel = node;
-                cc.log('[RoomManager] 自動找到 hostNameLabel');
-            }
-            if (!this.guestNameLabel) {
-                const node = this.hostPanel.getChildByName('guestNameLabel');
-                this.guestNameLabel = node;
-                cc.log('[RoomManager] 自動找到 guestNameLabel');
-            }
+        } else {
+            cc.log('[RoomManager] hostPanel 未找到！');
         }
 
         const joinPanel = this.node.getChildByName('joinPanel');
         if (!this.joinPanel && joinPanel) {
             this.joinPanel = joinPanel;
             cc.log('[RoomManager] 自動找到 joinPanel');
-        }
-
-        if (this.joinPanel) {
-            if (!this.codeInput) {
-                const node = this.joinPanel.getChildByName('codeInput');
-                this.codeInput = node ? node.getComponent(cc.EditBox) : null;
-                cc.log('[RoomManager] 自動找到 codeInput');
-            }
-            if (!this.joinErrorLabel) {
-                const node = this.joinPanel.getChildByName('joinErrorLabel');
-                this.joinErrorLabel = node;
-                cc.log('[RoomManager] 自動找到 joinErrorLabel');
-            }
         }
     },
 
