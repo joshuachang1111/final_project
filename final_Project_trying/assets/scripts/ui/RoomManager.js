@@ -225,20 +225,39 @@ cc.Class({
 
     _onRoomCreated: function(msg) {
         cc.log('[RoomManager] 房間已建立，代碼=', msg.code);
+        cc.log('[RoomManager] this._roomCodeLabel=', !!this._roomCodeLabel);
+
+        // 如果快取的節點不存在，重新搜索
+        if (!this._roomCodeLabel) {
+            cc.log('[RoomManager] 快取失敗，重新搜索節點...');
+            const hostPanel = this._findNode(this.node, 'hostPanel');
+            if (hostPanel) {
+                this._roomCodeLabel = hostPanel.getChildByName('roomCodeLabel');
+                this._waitingLabel = hostPanel.getChildByName('WaitingLabel') || hostPanel.getChildByName('waitingLabel');
+                this._hostNameLabel = hostPanel.getChildByName('hostNameLabel');
+                cc.log('[RoomManager] ✓ 重新搜索完成, roomCodeLabel=', !!this._roomCodeLabel);
+            }
+        }
 
         // 設定房間代碼
         if (this._roomCodeLabel) {
             const label = this._roomCodeLabel.getComponent(cc.Label);
+            cc.log('[RoomManager] roomCodeLabel label component=', !!label);
             if (label) {
-                label.string = msg.code;
+                label.string = String(msg.code);
                 cc.log('[RoomManager] ✓ 已設定房間代碼:', msg.code);
             }
+        } else {
+            cc.error('[RoomManager] ❌ roomCodeLabel 為 null！');
         }
 
         // 設定等待文字
         if (this._waitingLabel) {
             const label = this._waitingLabel.getComponent(cc.Label);
-            if (label) label.string = '等待另一位玩家加入...';
+            if (label) {
+                label.string = '等待另一位玩家加入...';
+                cc.log('[RoomManager] ✓ 已設定等待文字');
+            }
         }
 
         // 設定房主名字
