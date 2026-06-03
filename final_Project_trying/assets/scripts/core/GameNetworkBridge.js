@@ -38,7 +38,7 @@ cc.Class({
         this._remoteReady = false;
         this._gameStarted = false;
 
-        // 延遲一幀，等所有 onLoad 完成後，發送「我已進場」信號
+        // 延遲 0.5 秒，確保雙方都進遊戲並設好事件監聽，再發送「我已進場」信號
         this.scheduleOnce(() => {
             cc.log('[GameNetworkBridge] 本地進場完成，發送 ready 信號');
             this._localReady = true;
@@ -47,7 +47,7 @@ cc.Class({
             }
             // 馬上檢查是否兩人都準備好
             this._checkBothReady();
-        }, 0);
+        }, 0.5);
 
     },
 
