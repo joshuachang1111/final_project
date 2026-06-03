@@ -222,26 +222,44 @@ cc.Class({
     _onRoomCreated: function(msg) {
         cc.log('[RoomManager] 房間已建立，代碼=', msg.code);
 
-        // 快速設置房間代碼
-        if (this._roomCodeLabel) {
-            const label = this._roomCodeLabel.getComponent(cc.Label);
+        // 方案 A: 用快取的節點
+        let roomCodeNode = this._roomCodeLabel;
+        let hostNameNode = this._hostNameLabel;
+        let waitingNode = this._waitingLabel;
+
+        // 方案 B: 如果快取失敗，直接從 Canvas 逐層查找
+        if (!roomCodeNode) {
+            const hostPanel = this.node.getChildByName('hostPanel');
+            if (hostPanel) {
+                roomCodeNode = hostPanel.getChildByName('roomCodeLabel');
+                hostNameNode = hostPanel.getChildByName('hostNameLabel');
+                waitingNode = hostPanel.getChildByName('WaitingLabel');
+                cc.log('[RoomManager] 從 Canvas 重新找到 hostPanel');
+            }
+        }
+
+        // 設置房間代碼
+        if (roomCodeNode) {
+            const label = roomCodeNode.getComponent(cc.Label);
             if (label) {
                 label.string = String(msg.code);
                 cc.log('[RoomManager] ✓ 已設定房間代碼:', msg.code);
+            } else {
+                cc.log('[RoomManager] roomCodeNode 無 Label component');
             }
+        } else {
+            cc.log('[RoomManager] roomCodeNode 為 null');
         }
 
-        // 快速設置等待文字
-        if (this._waitingLabel) {
-            const label = this._waitingLabel.getComponent(cc.Label);
-            if (label) {
-                label.string = '等待另一位玩家加入...';
-            }
+        // 設置等待文字
+        if (waitingNode) {
+            const label = waitingNode.getComponent(cc.Label);
+            if (label) label.string = '等待另一位玩家加入...';
         }
 
-        // 快速設置房主名字
-        if (this._hostNameLabel) {
-            const label = this._hostNameLabel.getComponent(cc.Label);
+        // 設置房主名字
+        if (hostNameNode) {
+            const label = hostNameNode.getComponent(cc.Label);
             if (label) {
                 const hostName = (window._fbUser && window._fbUser.displayName) || '玩家1';
                 label.string = '🍳 ' + hostName;
