@@ -262,4 +262,9 @@ cc.Class({
         cc.log('onStartGame clicked - 進入關卡選擇');
         cc.director.loadScene('levelselect');
     },
+
+    // 選角色按鈕
+    onCharSelect() {
+        cc.director.loadScene('charselect');
+    },
 });

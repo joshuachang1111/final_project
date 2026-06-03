@@ -93,6 +93,10 @@ cc.Class({
                 }
             } else if (code === 3 && data && data.action === 'host_info' && window._nmRole === 'guest') {
                 this._emit('host_info', { name: data.name });
+            } else if (code === 4 && data && data.action === 'host_result_choice') {
+                // Host 在結算畫面選了 replay 或 menu，通知 Guest 跟著切場景
+                cc.log('【Code 4 收到】host 選擇：', data.choice);
+                this._emit('host_result_choice', { choice: data.choice });
             } else {
                 this._emit('game_event', { code, data, actorNr });
             }
@@ -173,6 +177,13 @@ cc.Class({
         const client = window._photonClient;
         if (!client) { cc.error('sendGameEvent: client 不存在'); return; }
         client.raiseEvent(eventCode, data);
+    },
+
+    // Host 在結算畫面按按鈕後廣播給 Guest
+    sendResultChoice(choice) {
+        if (!this._client) return;
+        cc.log('【sendResultChoice】choice=', choice);
+        this._client.raiseEvent(4, { action: 'host_result_choice', choice });
     },
 
     // Host 按下開始後呼叫
