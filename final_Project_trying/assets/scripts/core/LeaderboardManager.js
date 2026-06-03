@@ -54,7 +54,7 @@ const LeaderboardManager = {
                 uid: uid,
                 score: score,
                 level: level,
-                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                timestamp: new Date(),
             });
 
             cc.log('[LeaderboardManager] 分數上傳成功');
