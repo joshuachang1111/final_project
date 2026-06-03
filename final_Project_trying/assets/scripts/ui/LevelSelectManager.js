@@ -48,29 +48,39 @@ cc.Class({
         }
 
         cc.log('【LevelSelectManager】onLevelSelected 被觸發，levelId=', levelId);
+        this._selectedLevelId = levelId;
         window._selectedLevel = levelId;
         cc.sys.localStorage.setItem('selectedLevel', levelId);
         cc.sys.localStorage.setItem('playerRole', 'host');
 
-        const nm = window._nm;
+        cc.log('【LevelSelectManager】✓ 已選擇關卡：', levelId, '，請點擊「確認開始遊戲」按鈕');
+    },
+
+    onConfirmStart: function() {
+        cc.log('【LevelSelectManager】確認開始遊戲按鈕被點擊');
+
+        if (!this._selectedLevelId) {
+            cc.log('【LevelSelectManager】✗ 還沒選擇關卡');
+            return;
+        }
+
+        const levelId = this._selectedLevelId;
         const sceneName = LEVEL_SCENE_MAP[levelId];
+        const nm = window._nm;
 
         if (nm && sceneName) {
-            cc.log('【LevelSelectManager】Host 呼叫 nm.startGame');
+            cc.log('【LevelSelectManager】Host 通知 Guest 進遊戲，level=', levelId);
 
-            // 先通知 Guest 進遊戲
+            // 通知 Guest 進遊戲
             nm.startGame(levelId);
             cc.log('【LevelSelectManager】nm.startGame 已呼叫');
 
-            // 馬上進遊戲（不延遲），GameNetworkBridge 會確保同步
-            cc.log('【LevelSelectManager】即將進遊戲，場景名稱=', sceneName);
+            // 馬上進遊戲
+            cc.log('【LevelSelectManager】Host 進遊戲，場景名稱=', sceneName);
             cc.director.loadScene(sceneName);
-            cc.log('【LevelSelectManager】✓ loadScene 已呼叫');
         } else if (sceneName) {
             cc.log('警告：NetworkManager 不存在，直接進遊戲');
             cc.director.loadScene(sceneName);
-        } else {
-            cc.error('錯誤：找不到場景名稱，levelId=', levelId);
         }
     },
 
