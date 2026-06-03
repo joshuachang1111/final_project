@@ -83,10 +83,13 @@ cc.Class({
     },
 
     onLoad: function() {
-        cc.log('[RoomManager] onLoad');
+        cc.log('[RoomManager] onLoad START');
 
         this._initFirebase();
+        cc.log('[RoomManager] Firebase 初始化完成');
+
         this._autoFindNodes();
+        cc.log('[RoomManager] 自動尋找節點完成，roomCodeLabel=', this.roomCodeLabel);
 
         if (this.joinPanel) this.joinPanel.active = false;
         if (this.startBtn) this.startBtn.active = false;
@@ -100,6 +103,7 @@ cc.Class({
         }
 
         this.scheduleOnce(() => this._setupNetworkCallbacks(), 0);
+        cc.log('[RoomManager] onLoad END');
     },
 
     onDestroy: function() {
