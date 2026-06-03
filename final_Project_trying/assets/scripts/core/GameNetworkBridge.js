@@ -52,12 +52,15 @@ cc.Class({
     },
 
     _onRemotePlayerReady(msg) {
-        cc.log('[GameNetworkBridge] 收到對方進場信號');
+        cc.log('[GameNetworkBridge] 收到對方進場信號，role=', msg.role);
         this._remoteReady = true;
+        cc.log('[GameNetworkBridge] 狀態：_localReady=', this._localReady, '_remoteReady=', this._remoteReady);
         this._checkBothReady();
     },
 
     _checkBothReady() {
+        cc.log('[GameNetworkBridge] _checkBothReady called: _localReady=', this._localReady, '_remoteReady=', this._remoteReady, '_gameStarted=', this._gameStarted);
+
         if (this._gameStarted) {
             cc.log('[GameNetworkBridge] 遊戲已開始，忽略重複的 ready');
             return;
@@ -65,10 +68,15 @@ cc.Class({
 
         if (this._localReady && this._remoteReady) {
             this._gameStarted = true;
-            cc.log('[GameNetworkBridge] ✓ 兩人都已進場，開始遊戲');
+            cc.log('[GameNetworkBridge] ✓ 兩人都已進場，開始遊戲！');
             if (GameManager.instance) {
+                cc.log('[GameNetworkBridge] 呼叫 GameManager.startGame()');
                 GameManager.instance.startGame();
+            } else {
+                cc.error('[GameNetworkBridge] ✗ GameManager.instance 不存在！');
             }
+        } else {
+            cc.log('[GameNetworkBridge] 還在等待對方... _localReady=', this._localReady, '_remoteReady=', this._remoteReady);
         }
     },
 
