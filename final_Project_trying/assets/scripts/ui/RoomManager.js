@@ -48,23 +48,24 @@ cc.Class({
         cc.log('[RoomManager] onLoad, role=', window._nmRole);
 
         this._initFirebase();
-        this._showRolePanel();
+        this._initPanels();
         this.scheduleOnce(() => this._setupNetworkCallbacks(), 0);
     },
 
-    _showRolePanel: function() {
+    _initPanels: function() {
         const isHost = window._nmRole === 'host';
 
-        cc.log('[RoomManager] _showRolePanel, isHost=', isHost);
+        cc.log('[RoomManager] _initPanels, isHost=', isHost);
 
-        // guest 進入時先顯示 joinPanel（輸入代碼），加入後才顯示 hostPanel
-        // host 直接顯示 hostPanel
+        // host：先隱藏，等 _onRoomCreated 觸發後再顯示
+        // guest：先顯示 joinPanel，加入後才顯示 hostPanel
         if (isHost) {
-            if (this.hostPanel) this.hostPanel.active = true;
+            if (this.hostPanel) this.hostPanel.active = false;
             if (this.joinPanel) this.joinPanel.active = false;
         } else {
             if (this.hostPanel) this.hostPanel.active = false;
             if (this.joinPanel) this.joinPanel.active = true;
+            if (this.joinErrorLabel) this.joinErrorLabel.string = ''; // 初始化為空
         }
     },
 
@@ -131,6 +132,12 @@ cc.Class({
         if (this.startBtn) {
             this.startBtn.node.active = false;
         }
+
+        // 現在才顯示 hostPanel（已填充代碼和名字）
+        if (this.hostPanel) {
+            this.hostPanel.active = true;
+            cc.log('[RoomManager] ✓ 顯示 hostPanel');
+        }
     },
 
     _onGuestJoined: function(msg) {
@@ -191,11 +198,19 @@ cc.Class({
 
     onConfirmJoin: function() {
         const code = this.codeInput ? this.codeInput.string.trim() : '';
+
+        // 驗證
         if (!code || code.length !== 4) {
             if (this.joinErrorLabel) {
                 this.joinErrorLabel.string = '請輸入 4 位代碼';
+                cc.log('[RoomManager] ✗ 代碼驗證失敗');
             }
             return;
+        }
+
+        // 驗證通過，清除錯誤訊息
+        if (this.joinErrorLabel) {
+            this.joinErrorLabel.string = '';
         }
 
         cc.log('[RoomManager] Guest 加入房間，代碼=', code);
