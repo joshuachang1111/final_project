@@ -20,6 +20,15 @@
 const EventBus = require('../core/EventBus');
 const LeaderboardManager = require('../core/LeaderboardManager');
 
+const FIREBASE_CONFIG = {
+    apiKey:            'AIzaSyAJKvWVAepCItXJxTpj5LKohYunVr1K1xM',
+    authDomain:        'overcook-37ac5.firebaseapp.com',
+    projectId:         'overcook-37ac5',
+    storageBucket:     'overcook-37ac5.firebasestorage.app',
+    messagingSenderId: '566365786141',
+    appId:             '1:566365786141:web:b2b6b134ef0c231b6bf6f4',
+};
+
 const ResultSceneManager = cc.Class({
     extends: cc.Component,
 
@@ -59,6 +68,9 @@ const ResultSceneManager = cc.Class({
     onLoad() {
         cc.log('[ResultSceneManager] onLoad');
 
+        // 初始化 Firebase（如果還沒初始化）
+        this._initFirebase();
+
         if (this.leaderboardPanel) this.leaderboardPanel.active = false;
 
         // 綁定按鈕
@@ -74,6 +86,20 @@ const ResultSceneManager = cc.Class({
 
         // 監聽遊戲結束事件，顯示分數並上傳排行榜
         EventBus.on('game:end', this._onGameEnd, this);
+    },
+
+    _initFirebase() {
+        if (typeof firebase === 'undefined') {
+            cc.error('[ResultSceneManager] Firebase SDK 未載入');
+            return;
+        }
+        if (!firebase.apps.length) {
+            cc.log('[ResultSceneManager] 初始化 Firebase');
+            firebase.initializeApp(FIREBASE_CONFIG);
+        }
+        window._fbAuth = firebase.auth();
+        window._fbUser = window._fbAuth.currentUser || null;
+        cc.log('[ResultSceneManager] Firebase 初始化完成，user=', !!window._fbUser);
     },
 
     onDestroy() {

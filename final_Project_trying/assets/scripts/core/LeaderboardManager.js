@@ -79,65 +79,65 @@ const LeaderboardManager = {
     /**
      * 取得前 N 名排行榜
      * @param {number} limit 前幾名（預設 10）
-     * @returns {Array} 排行榜陣列，每項 { rank, name, score, level }
+     * @returns {Promise} 排行榜陣列，每項 { rank, name, score, level }
      */
-    async fetchTopScores(limit = 10) {
+    fetchTopScores(limit = 10) {
         cc.log('[LeaderboardManager] fetchTopScores called, _db=', !!this._db);
         if (!this._db) {
             cc.error('[LeaderboardManager] Firestore 未初始化，無法讀取排行榜');
-            return [];
+            return Promise.resolve([]);
         }
 
-        try {
-            cc.log('[LeaderboardManager] 開始查詢前', limit, '名...');
+        cc.log('[LeaderboardManager] 開始查詢前', limit, '名...');
 
-            const snapshot = await this._db.collection('leaderboard')
-                .orderBy('score', 'desc')
-                .limit(limit)
-                .get();
+        return this._db.collection('leaderboard')
+            .orderBy('score', 'desc')
+            .limit(limit)
+            .get()
+            .then((snapshot) => {
+                cc.log('[LeaderboardManager] 查詢完成，文件數=', snapshot.size);
 
-            cc.log('[LeaderboardManager] 查詢完成，文件數=', snapshot.size);
-
-            const leaderboard = [];
-            snapshot.forEach((doc, index) => {
-                const data = doc.data();
-                cc.log('[LeaderboardManager] 文件', index, ':', data);
-                leaderboard.push({
-                    rank: index + 1,
-                    name: data.name || '訪客',
-                    score: data.score,
-                    level: data.level,
+                const leaderboard = [];
+                snapshot.forEach((doc, index) => {
+                    const data = doc.data();
+                    cc.log('[LeaderboardManager] 文件', index, ':', data);
+                    leaderboard.push({
+                        rank: index + 1,
+                        name: data.name || '訪客',
+                        score: data.score,
+                        level: data.level,
+                    });
                 });
-            });
 
-            cc.log('[LeaderboardManager] 取得排行榜:', JSON.stringify(leaderboard));
-            return leaderboard;
-        } catch (err) {
-            cc.error('[LeaderboardManager] 查詢失敗:', err.message, err.code);
-            return [];
-        }
+                cc.log('[LeaderboardManager] 取得排行榜:', JSON.stringify(leaderboard));
+                return leaderboard;
+            })
+            .catch((err) => {
+                cc.error('[LeaderboardManager] 查詢失敗:', err.message, err.code);
+                return [];
+            });
     },
 
     /**
      * 取得單個玩家的最高分（可選功能）
      */
-    async getPlayerBestScore(uid) {
-        if (!this._db || !uid) return null;
+    getPlayerBestScore(uid) {
+        if (!this._db || !uid) return Promise.resolve(null);
 
-        try {
-            const snapshot = await this._db.collection('leaderboard')
-                .where('uid', '==', uid)
-                .orderBy('score', 'desc')
-                .limit(1)
-                .get();
-
-            if (snapshot.empty) return null;
-            const doc = snapshot.docs[0];
-            return doc.data();
-        } catch (err) {
-            cc.error('[LeaderboardManager] 查詢玩家分數失敗:', err.message);
-            return null;
-        }
+        return this._db.collection('leaderboard')
+            .where('uid', '==', uid)
+            .orderBy('score', 'desc')
+            .limit(1)
+            .get()
+            .then((snapshot) => {
+                if (snapshot.empty) return null;
+                const doc = snapshot.docs[0];
+                return doc.data();
+            })
+            .catch((err) => {
+                cc.error('[LeaderboardManager] 查詢玩家分數失敗:', err.message);
+                return null;
+            });
     },
 };
 
