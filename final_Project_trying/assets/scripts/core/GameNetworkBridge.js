@@ -14,6 +14,7 @@ cc.Class({
         const role = window._nmRole || 'host';
         this._localId  = role === 'host' ? 1 : 2;
         this._remoteId = role === 'host' ? 2 : 1;
+        this._role = role;
         cc.log('GameNetworkBridge: role =', role, ', localId =', this._localId);
 
         // Bug 5 fix (from previous): store all callbacks so onDestroy can remove them
@@ -21,7 +22,7 @@ cc.Class({
         this._onLocalPickup  = this._handleLocalPickup.bind(this);
         this._onLocalPlace   = this._handleLocalPlace.bind(this);
         this._onLocalServe   = this._handleLocalServe.bind(this);
-        this._onGameEvent    = (msg) => this._applyRemoteEvent(msg);
+        this._onGameEvent    = (msg) => this._applyGameEvent.call(this, msg);
 
         EventBus.on('player:moved',    this._onLocalMove,   this);
         EventBus.on('station:pickup',  this._onLocalPickup, this);
@@ -32,13 +33,36 @@ cc.Class({
             window._nm.on('game_event', this._onGameEvent);
         }
 
-        // Bug 4 (original): delay one frame so all onLoad() calls finish before starting
+        // 等待兩人都進場
+        this._localReady = false;
+        this._remoteReady = false;
+
+        // 延遲一幀，等所有 onLoad 完成後，發送「我已進場」信號
         this.scheduleOnce(() => {
+            cc.log('[GameNetworkBridge] 本地進場完成，發送 ready 信號');
+            this._localReady = true;
+            if (window._nm) {
+                window._nm.sendGameEvent(100, { action: 'player_ready', role: this._role });
+            }
+            // 馬上檢查是否兩人都準備好
+            this._checkBothReady();
+        }, 0);
+
+    },
+
+    _onRemotePlayerReady(msg) {
+        cc.log('[GameNetworkBridge] 收到對方進場信號');
+        this._remoteReady = true;
+        this._checkBothReady();
+    },
+
+    _checkBothReady() {
+        if (this._localReady && this._remoteReady) {
+            cc.log('[GameNetworkBridge] ✓ 兩人都已進場，開始遊戲');
             if (GameManager.instance) {
                 GameManager.instance.startGame();
             }
-        }, 0);
-
+        }
     },
 
     onDestroy() {
@@ -103,10 +127,17 @@ cc.Class({
 
     // ─── Remote → Local ──────────────────────────────────
 
-    _applyRemoteEvent(msg) {
+    _applyGameEvent(msg) {
         const { code, data } = msg;
         if (!data) return;
 
+        // code 100: player_ready 信號（等待兩人進場）
+        if (code === 100 && data && data.action === 'player_ready') {
+            this._onRemotePlayerReady(data);
+            return;
+        }
+
+        // 其他遊戲事件
         if      (code === EV_MOVE)    this._applyRemoteMove(data);
         else if (code === EV_STATION) this._applyRemoteStation(data);
         else if (code === EV_SERVE)   this._applyRemoteServe(data);
