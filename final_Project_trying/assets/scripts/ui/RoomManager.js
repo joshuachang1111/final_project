@@ -93,21 +93,38 @@ cc.Class({
 
         this._initFirebase();
 
-        // 強制執行自動尋找節點
-        this._autoFindNodes();
+        // 直接從 this.node（Canvas）查找關鍵節點
+        const hostPanel = this.node.getChildByName('hostPanel');
+        const joinPanel = this.node.getChildByName('joinPanel');
 
-        // 立即保存節點引用，避免後續查找失敗
-        this._cacheNodes();
+        cc.log('[RoomManager] hostPanel=', !!hostPanel);
+        cc.log('[RoomManager] joinPanel=', !!joinPanel);
 
-        if (this.joinPanel) this.joinPanel.active = false;
-        if (this.startBtn) this.startBtn.active = false;
-        if (this.hostPanel) {
-            this.hostPanel.active = true;
-            cc.log('[RoomManager] hostPanel.active = true');
+        // 快取節點
+        if (hostPanel) {
+            this._hostPanel = hostPanel;
+            this._roomCodeLabel = hostPanel.getChildByName('roomCodeLabel');
+            this._waitingLabel = hostPanel.getChildByName('WaitingLabel');
+            this._hostNameLabel = hostPanel.getChildByName('hostNameLabel');
+            this._guestNameLabel = hostPanel.getChildByName('guestNameLabel');
+
+            cc.log('[RoomManager] ✓ hostPanel 節點快取完成');
+            cc.log('[RoomManager]   roomCodeLabel=', !!this._roomCodeLabel);
+            cc.log('[RoomManager]   waitingLabel=', !!this._waitingLabel);
+            cc.log('[RoomManager]   hostNameLabel=', !!this._hostNameLabel);
         }
 
-        if (this.startBtn) {
-            this.startBtn.on('click', this._onStartGame, this);
+        if (joinPanel) {
+            this._joinPanel = joinPanel;
+            this._startBtn = this.node.getChildByName('startBtn');
+        }
+
+        if (this._hostPanel) this._hostPanel.active = true;
+        if (this._joinPanel) this._joinPanel.active = false;
+        if (this._startBtn) this._startBtn.active = false;
+
+        if (this._startBtn) {
+            this._startBtn.on('click', this._onStartGame, this);
         }
 
         this.scheduleOnce(() => this._setupNetworkCallbacks(), 0);
@@ -190,33 +207,24 @@ cc.Class({
     _onRoomCreated: function(msg) {
         cc.log('[RoomManager] 房間已建立，代碼=', msg.code);
 
-        // 使用快取的節點引用（更穩定）
-        const roomCodeNode = this._roomCodeLabelCache || this.roomCodeLabel;
-        const waitingNode = this._waitingLabelCache || this.waitingLabel;
-        const hostNameNode = this._hostNameLabelCache || this.hostNameLabel;
-
         // 設定房間代碼
-        if (roomCodeNode) {
-            const label = roomCodeNode.getComponent(cc.Label);
+        if (this._roomCodeLabel) {
+            const label = this._roomCodeLabel.getComponent(cc.Label);
             if (label) {
                 label.string = msg.code;
                 cc.log('[RoomManager] ✓ 已設定房間代碼:', msg.code);
-            } else {
-                cc.log('[RoomManager] roomCodeNode 沒有 Label component');
             }
-        } else {
-            cc.log('[RoomManager] roomCodeNode 為 null');
         }
 
         // 設定等待文字
-        if (waitingNode) {
-            const label = waitingNode.getComponent(cc.Label);
+        if (this._waitingLabel) {
+            const label = this._waitingLabel.getComponent(cc.Label);
             if (label) label.string = '等待另一位玩家加入...';
         }
 
         // 設定房主名字
-        if (hostNameNode) {
-            const label = hostNameNode.getComponent(cc.Label);
+        if (this._hostNameLabel) {
+            const label = this._hostNameLabel.getComponent(cc.Label);
             if (label) {
                 const hostName = (window._fbUser && window._fbUser.displayName) || '玩家1';
                 label.string = '🍳 ' + hostName;
@@ -225,12 +233,12 @@ cc.Class({
         }
 
         // 隱藏 Guest 名字
-        if (this.guestNameLabel) {
-            this.guestNameLabel.active = false;
+        if (this._guestNameLabel) {
+            this._guestNameLabel.active = false;
         }
 
         // 隱藏開始按鈕
-        if (this.startBtn) this.startBtn.active = false;
+        if (this._startBtn) this._startBtn.active = false;
     },
 
     _onGuestJoined: function(msg) {
