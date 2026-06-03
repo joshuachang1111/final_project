@@ -182,36 +182,18 @@ cc.Class({
         }
     },
 
-    _findNodeByName: function(node, name, depth) {
-        if (!node) return null;
-        depth = depth || 0;
-        if (depth > 10) return null; // 防止無限遞迴
-
-        if (node.name === name) return node;
-
-        for (let i = 0; i < node.children.length; i++) {
-            const found = this._findNodeByName(node.children[i], name, depth + 1);
-            if (found) return found;
-        }
-        return null;
-    },
-
     _onRoomCreated: function(msg) {
         cc.log('[RoomManager] 房間已建立，代碼=', msg.code);
 
-        // 方案 A: 用快取的節點
-        let roomCodeNode = this._roomCodeLabel;
-        let hostNameNode = this._hostNameLabel;
-        let waitingNode = this._waitingLabel;
+        // 從 Canvas 開始找節點（因為 RoomManager script 掛在 RoomManager 節點上）
+        const canvas = this.node.parent || cc.director.getScene().getChildByName('Canvas');
+        const hostPanel = canvas ? canvas.getChildByName('hostPanel') : null;
 
-        // 方案 B: 如果快取失敗，深度搜索場景樹
-        if (!roomCodeNode) {
-            cc.log('[RoomManager] 開始深度搜索 roomCodeLabel...');
-            roomCodeNode = this._findNodeByName(this.node, 'roomCodeLabel');
-            hostNameNode = this._findNodeByName(this.node, 'hostNameLabel');
-            waitingNode = this._findNodeByName(this.node, 'WaitingLabel');
-            cc.log('[RoomManager] 深度搜索完成, roomCodeNode=', !!roomCodeNode);
-        }
+        let roomCodeNode = hostPanel ? hostPanel.getChildByName('roomCodeLabel') : null;
+        let hostNameNode = hostPanel ? hostPanel.getChildByName('hostNameLabel') : null;
+        let waitingNode = hostPanel ? (hostPanel.getChildByName('WaitingLabel') || hostPanel.getChildByName('waitingLabel')) : null;
+
+        cc.log('[RoomManager] hostPanel=', !!hostPanel, ', roomCodeNode=', !!roomCodeNode);
 
         // 設置房間代碼
         if (roomCodeNode) {
@@ -220,6 +202,8 @@ cc.Class({
                 label.string = String(msg.code);
                 cc.log('[RoomManager] ✓ 已設定房間代碼:', msg.code);
             }
+        } else {
+            cc.error('[RoomManager] ❌ roomCodeNode 找不到！');
         }
 
         // 設置等待文字
@@ -239,12 +223,14 @@ cc.Class({
         }
 
         // 隱藏 Guest 名字
-        if (this._guestNameLabel) {
-            this._guestNameLabel.active = false;
+        const guestNameNode = hostPanel ? hostPanel.getChildByName('guestNameLabel') : null;
+        if (guestNameNode) {
+            guestNameNode.active = false;
         }
 
         // 隱藏開始按鈕
-        if (this._startBtn) this._startBtn.active = false;
+        const startBtn = hostPanel ? hostPanel.getChildByName('startBtn') : null;
+        if (startBtn) startBtn.active = false;
     },
 
     _onGuestJoined: function(msg) {
