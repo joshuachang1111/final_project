@@ -93,10 +93,20 @@ cc.Class({
 
         this._initFirebase();
 
-        // 遞迴搜索整個場景找 hostPanel
-        const hostPanel = this._findNode(this.node, 'hostPanel');
-        const joinPanel = this._findNode(this.node, 'joinPanel');
-        const startBtn = this._findNode(this.node, 'startBtn');
+        // 簡單直接查找：Canvas 的子節點
+        let hostPanel = this.node.getChildByName('hostPanel');
+        let joinPanel = this.node.getChildByName('joinPanel');
+        let startBtn = this.node.getChildByName('startBtn');
+
+        // 如果直接查找失敗，試試遍歷所有子節點（一層深）
+        if (!hostPanel) {
+            for (let i = 0; i < this.node.children.length; i++) {
+                if (this.node.children[i].name === 'hostPanel') {
+                    hostPanel = this.node.children[i];
+                    break;
+                }
+            }
+        }
 
         cc.log('[RoomManager] hostPanel=', !!hostPanel);
         cc.log('[RoomManager] joinPanel=', !!joinPanel);
@@ -118,8 +128,6 @@ cc.Class({
 
         if (joinPanel) {
             this._joinPanel = joinPanel;
-            const codeInputNode = joinPanel.getChildByName('codeInput');
-            this._codeInput = codeInputNode ? codeInputNode.getComponent(cc.EditBox) : null;
         }
 
         if (startBtn) {
@@ -136,18 +144,6 @@ cc.Class({
 
         this.scheduleOnce(() => this._setupNetworkCallbacks(), 0);
         cc.log('[RoomManager] onLoad END');
-    },
-
-    // 遞迴搜索節點
-    _findNode: function(parent, nodeName) {
-        if (!parent) return null;
-        if (parent.name === nodeName) return parent;
-
-        for (let i = 0; i < parent.children.length; i++) {
-            const found = this._findNode(parent.children[i], nodeName);
-            if (found) return found;
-        }
-        return null;
     },
 
     // 緩存節點引用，以備後用
@@ -225,42 +221,25 @@ cc.Class({
 
     _onRoomCreated: function(msg) {
         cc.log('[RoomManager] 房間已建立，代碼=', msg.code);
-        cc.log('[RoomManager] this._roomCodeLabel=', !!this._roomCodeLabel);
 
-        // 如果快取的節點不存在，重新搜索
-        if (!this._roomCodeLabel) {
-            cc.log('[RoomManager] 快取失敗，重新搜索節點...');
-            const hostPanel = this._findNode(this.node, 'hostPanel');
-            if (hostPanel) {
-                this._roomCodeLabel = hostPanel.getChildByName('roomCodeLabel');
-                this._waitingLabel = hostPanel.getChildByName('WaitingLabel') || hostPanel.getChildByName('waitingLabel');
-                this._hostNameLabel = hostPanel.getChildByName('hostNameLabel');
-                cc.log('[RoomManager] ✓ 重新搜索完成, roomCodeLabel=', !!this._roomCodeLabel);
-            }
-        }
-
-        // 設定房間代碼
+        // 快速設置房間代碼
         if (this._roomCodeLabel) {
             const label = this._roomCodeLabel.getComponent(cc.Label);
-            cc.log('[RoomManager] roomCodeLabel label component=', !!label);
             if (label) {
                 label.string = String(msg.code);
                 cc.log('[RoomManager] ✓ 已設定房間代碼:', msg.code);
             }
-        } else {
-            cc.error('[RoomManager] ❌ roomCodeLabel 為 null！');
         }
 
-        // 設定等待文字
+        // 快速設置等待文字
         if (this._waitingLabel) {
             const label = this._waitingLabel.getComponent(cc.Label);
             if (label) {
                 label.string = '等待另一位玩家加入...';
-                cc.log('[RoomManager] ✓ 已設定等待文字');
             }
         }
 
-        // 設定房主名字
+        // 快速設置房主名字
         if (this._hostNameLabel) {
             const label = this._hostNameLabel.getComponent(cc.Label);
             if (label) {
