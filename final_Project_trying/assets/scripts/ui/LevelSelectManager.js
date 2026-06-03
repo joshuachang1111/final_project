@@ -62,17 +62,13 @@ cc.Class({
             nm.startGame(levelId);
             cc.log('【LevelSelectManager】nm.startGame 已呼叫');
 
-            // 延遲 1 秒後進遊戲，確保 levelselect 場景完全加載
-            this.scheduleOnce(() => {
-                cc.log('【LevelSelectManager】即將進遊戲，場景名稱=', sceneName);
-                cc.director.loadScene(sceneName);
-                cc.log('【LevelSelectManager】✓ loadScene 已呼叫');
-            }, 1.0);
+            // 馬上進遊戲（不延遲），GameNetworkBridge 會確保同步
+            cc.log('【LevelSelectManager】即將進遊戲，場景名稱=', sceneName);
+            cc.director.loadScene(sceneName);
+            cc.log('【LevelSelectManager】✓ loadScene 已呼叫');
         } else if (sceneName) {
             cc.log('警告：NetworkManager 不存在，直接進遊戲');
-            this.scheduleOnce(() => {
-                cc.director.loadScene(sceneName);
-            }, 0.1);
+            cc.director.loadScene(sceneName);
         } else {
             cc.error('錯誤：找不到場景名稱，levelId=', levelId);
         }
