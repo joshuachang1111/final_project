@@ -84,19 +84,22 @@ cc.Class({
 
     onLoad: function() {
         cc.log('[RoomManager] onLoad START');
+        cc.log('[RoomManager] roomCodeLabel=', this.roomCodeLabel);
+        cc.log('[RoomManager] hostPanel=', this.hostPanel);
+        cc.log('[RoomManager] waitingLabel=', this.waitingLabel);
+        cc.log('[RoomManager] hostNameLabel=', this.hostNameLabel);
 
         this._initFirebase();
-        cc.log('[RoomManager] Firebase 初始化完成');
 
-        this._autoFindNodes();
-        cc.log('[RoomManager] 自動尋找節點完成，roomCodeLabel=', this.roomCodeLabel);
+        // 如果 Inspector 沒綁定，嘗試自動尋找
+        if (!this.roomCodeLabel || !this.hostPanel) {
+            cc.log('[RoomManager] 開始自動尋找節點...');
+            this._autoFindNodes();
+        }
 
         if (this.joinPanel) this.joinPanel.active = false;
         if (this.startBtn) this.startBtn.active = false;
-
         if (this.hostPanel) this.hostPanel.active = true;
-
-        cc.log('[RoomManager] hostPanel.active=', this.hostPanel ? this.hostPanel.active : 'null');
 
         if (this.startBtn) {
             this.startBtn.on('click', this._onStartGame, this);
