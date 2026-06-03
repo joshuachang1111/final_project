@@ -126,13 +126,28 @@ cc.Class({
 
     _onRoomCreated(msg) {
         cc.log('[RoomManager] 房間已建立，代碼=', msg.code);
+        cc.log('[RoomManager] roomCodeLabel=', !!this.roomCodeLabel, this.roomCodeLabel);
+        cc.log('[RoomManager] hostNameLabel=', !!this.hostNameLabel, this.hostNameLabel);
+
         if (this.hostPanel) this.hostPanel.active = true;
-        if (this.roomCodeLabel) this.roomCodeLabel.string = msg.code;
+
+        if (this.roomCodeLabel) {
+            this.roomCodeLabel.string = msg.code;
+            cc.log('[RoomManager] 已設定房間代碼:', msg.code);
+        } else {
+            cc.error('[RoomManager] roomCodeLabel 未綁定！');
+        }
+
         if (this.waitingLabel) this.waitingLabel.string = '等待另一位玩家加入...';
+
         if (this.hostNameLabel) {
             const hostName = (window._fbUser && window._fbUser.displayName) || '玩家1';
             this.hostNameLabel.string = '🍳 ' + hostName;
+            cc.log('[RoomManager] 已設定房主名字:', hostName);
+        } else {
+            cc.error('[RoomManager] hostNameLabel 未綁定！');
         }
+
         if (this.guestNameLabel) this.guestNameLabel.node.active = false;
         if (this.startBtn) this.startBtn.active = false;
     },
