@@ -123,13 +123,22 @@ const ResultScreen = cc.Class({
         if (this._clicked) return;
         this._clicked = true;
         cc.log('[ResultScreen] 回主選單 clicked');
-        // 回主選單前先離開 Photon 房間，否則 NM 還掛在原本房裡，
-        // 下次想建房 / 加入會出怪事。
-        if (window._nm && typeof window._nm.leaveRoom === 'function') {
-            window._nm.leaveRoom();
+        // 多人模式：回到菜單的等待房間頁面（保持房間）
+        // 單人模式：直接回菜單
+        const inMultiplayer = window._nm && window._nmRoomCode;
+        if (inMultiplayer) {
+            // 多人模式：重置遊戲狀態，回到 menu 場景的等待房間
+            if (window._nm) window._nm._gameStarted = false;
+            EventBus.clear();
+            cc.director.loadScene('menu');
+        } else {
+            // 單人模式：完全退出，回菜單
+            if (window._nm && typeof window._nm.leaveRoom === 'function') {
+                window._nm.leaveRoom();
+            }
+            EventBus.clear();
+            cc.director.loadScene('menu');
         }
-        EventBus.clear();
-        cc.director.loadScene('menu');
     },
 });
 
