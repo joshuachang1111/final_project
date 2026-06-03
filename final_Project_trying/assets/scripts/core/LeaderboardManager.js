@@ -41,39 +41,39 @@ const LeaderboardManager = {
     /**
      * 上傳玩家分數到 Firestore
      * @param {Object} scoreData { playerName, uid, score, level }
+     * @returns {Promise} true 或 false
      */
-    async submitScore(scoreData) {
+    submitScore(scoreData) {
         if (!this._db) {
             cc.warn('[LeaderboardManager] Firestore 未初始化，無法提交分數');
-            return false;
+            return Promise.resolve(false);
         }
 
         const { playerName = '訪客', uid, score, level } = scoreData;
 
         if (!uid || score === undefined || !level) {
             cc.error('[LeaderboardManager] 分數數據不完整', scoreData);
-            return false;
+            return Promise.resolve(false);
         }
 
-        try {
-            cc.log('[LeaderboardManager] 上傳分數:', { playerName, score, level });
+        cc.log('[LeaderboardManager] 上傳分數:', { playerName, score, level });
 
-            // 用 uid + timestamp 作為 doc ID，確保同一玩家多局都能記錄
-            const docId = `${uid}_${Date.now()}`;
-            await this._db.collection('leaderboard').doc(docId).set({
-                name: playerName,
-                uid: uid,
-                score: score,
-                level: level,
-                timestamp: new Date(),
+        const docId = `${uid}_${Date.now()}`;
+        return this._db.collection('leaderboard').doc(docId).set({
+            name: playerName,
+            uid: uid,
+            score: score,
+            level: level,
+            timestamp: new Date(),
+        })
+            .then(() => {
+                cc.log('[LeaderboardManager] 分數上傳成功');
+                return true;
+            })
+            .catch((err) => {
+                cc.error('[LeaderboardManager] 上傳失敗:', err.message);
+                return false;
             });
-
-            cc.log('[LeaderboardManager] 分數上傳成功');
-            return true;
-        } catch (err) {
-            cc.error('[LeaderboardManager] 上傳失敗:', err.message);
-            return false;
-        }
     },
 
     /**
