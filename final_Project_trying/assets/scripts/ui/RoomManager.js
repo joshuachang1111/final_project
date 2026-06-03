@@ -88,60 +88,21 @@ cc.Class({
         }
     },
 
+    _printNodeTree: function(node, depth) {
+        depth = depth || 0;
+        if (depth > 5) return;
+        const indent = '  '.repeat(depth);
+        cc.log(indent + node.name);
+        for (let i = 0; i < node.children.length; i++) {
+            this._printNodeTree(node.children[i], depth + 1);
+        }
+    },
+
     onLoad: function() {
-        cc.log('[RoomManager] onLoad START');
+        cc.log('[RoomManager] onLoad START - 場景樹結構：');
+        this._printNodeTree(this.node);
 
         this._initFirebase();
-
-        // 簡單直接查找：Canvas 的子節點
-        let hostPanel = this.node.getChildByName('hostPanel');
-        let joinPanel = this.node.getChildByName('joinPanel');
-        let startBtn = this.node.getChildByName('startBtn');
-
-        // 如果直接查找失敗，試試遍歷所有子節點（一層深）
-        if (!hostPanel) {
-            for (let i = 0; i < this.node.children.length; i++) {
-                if (this.node.children[i].name === 'hostPanel') {
-                    hostPanel = this.node.children[i];
-                    break;
-                }
-            }
-        }
-
-        cc.log('[RoomManager] hostPanel=', !!hostPanel);
-        cc.log('[RoomManager] joinPanel=', !!joinPanel);
-        cc.log('[RoomManager] startBtn=', !!startBtn);
-
-        // 快取節點
-        if (hostPanel) {
-            this._hostPanel = hostPanel;
-            this._roomCodeLabel = hostPanel.getChildByName('roomCodeLabel');
-            this._waitingLabel = hostPanel.getChildByName('WaitingLabel') || hostPanel.getChildByName('waitingLabel');
-            this._hostNameLabel = hostPanel.getChildByName('hostNameLabel');
-            this._guestNameLabel = hostPanel.getChildByName('guestNameLabel');
-
-            cc.log('[RoomManager] ✓ hostPanel 節點快取完成');
-            cc.log('[RoomManager]   roomCodeLabel=', !!this._roomCodeLabel);
-            cc.log('[RoomManager]   waitingLabel=', !!this._waitingLabel);
-            cc.log('[RoomManager]   hostNameLabel=', !!this._hostNameLabel);
-        }
-
-        if (joinPanel) {
-            this._joinPanel = joinPanel;
-        }
-
-        if (startBtn) {
-            this._startBtn = startBtn;
-        }
-
-        if (this._hostPanel) this._hostPanel.active = true;
-        if (this._joinPanel) this._joinPanel.active = false;
-        if (this._startBtn) this._startBtn.active = false;
-
-        if (this._startBtn) {
-            this._startBtn.on('click', this._onStartGame, this);
-        }
-
         this.scheduleOnce(() => this._setupNetworkCallbacks(), 0);
         cc.log('[RoomManager] onLoad END');
     },
