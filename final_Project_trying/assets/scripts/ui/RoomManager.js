@@ -201,14 +201,16 @@ cc.Class({
             return;
         }
 
-        nm.on('connecting', this._onConnecting, this);
-        nm.on('room_created', this._onRoomCreated, this);
-        nm.on('guest_joined', this._onGuestJoined, this);
-        nm.on('guest_waiting', this._onGuestWaiting, this);
-        nm.on('host_info', this._onHostInfo, this);
-        nm.on('start_game', this._onStartGameEvent, this);
-        nm.on('error', this._onError, this);
-        nm.on('player_disconnected', this._onPlayerDisconnected, this);
+        const self = this;
+
+        nm.on('connecting', function() { self._onConnecting.call(self); });
+        nm.on('room_created', function(msg) { self._onRoomCreated.call(self, msg); });
+        nm.on('guest_joined', function(msg) { self._onGuestJoined.call(self, msg); });
+        nm.on('guest_waiting', function(msg) { self._onGuestWaiting.call(self, msg); });
+        nm.on('host_info', function(msg) { self._onHostInfo.call(self, msg); });
+        nm.on('start_game', function(msg) { self._onStartGameEvent.call(self, msg); });
+        nm.on('error', function(msg) { self._onError.call(self, msg); });
+        nm.on('player_disconnected', function() { self._onPlayerDisconnected.call(self); });
     },
 
     _onConnecting: function() {
