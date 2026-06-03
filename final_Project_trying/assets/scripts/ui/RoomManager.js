@@ -163,49 +163,43 @@ cc.Class({
     _onRoomCreated: function(msg) {
         cc.log('[RoomManager] 房間已建立，代碼=', msg.code);
 
-        // 找到 hostPanel（從 Canvas 的子節點查找）
-        let hostPanel = this.hostPanel;
+        // 安全地找到 hostPanel（用 this.node 作為基準，確保 this 上下文正確）
+        const hostPanel = this.hostPanel || (this.node && this.node.getChildByName('hostPanel'));
+
         if (!hostPanel) {
-            hostPanel = this.node.getChildByName('hostPanel');
-            cc.log('[RoomManager] 從 Canvas 查找到 hostPanel=', !!hostPanel);
+            cc.error('[RoomManager] hostPanel 找不到！');
+            return;
         }
 
-        if (hostPanel) {
-            hostPanel.active = true;
+        hostPanel.active = true;
 
-            // 在 hostPanel 中查找各個子節點並設置文字
-            const roomCodeLabelNode = hostPanel.getChildByName('roomCodeLabel');
-            if (roomCodeLabelNode) {
-                const label = roomCodeLabelNode.getComponent(cc.Label);
-                if (label) {
-                    label.string = msg.code;
-                    cc.log('[RoomManager] ✓ 已設定房間代碼:', msg.code);
-                }
-            }
-
-            const waitingLabelNode = hostPanel.getChildByName('WaitingLabel') || hostPanel.getChildByName('waitingLabel');
-            if (waitingLabelNode) {
-                const label = waitingLabelNode.getComponent(cc.Label);
-                if (label) label.string = '等待另一位玩家加入...';
-            }
-
-            const hostNameLabelNode = hostPanel.getChildByName('hostNameLabel');
-            if (hostNameLabelNode) {
-                const label = hostNameLabelNode.getComponent(cc.Label);
-                if (label) {
-                    const hostName = (window._fbUser && window._fbUser.displayName) || '玩家1';
-                    label.string = '🍳 ' + hostName;
-                    cc.log('[RoomManager] ✓ 已設定房主名字:', hostName);
-                }
-            }
-
-            const guestNameLabelNode = hostPanel.getChildByName('guestNameLabel');
-            if (guestNameLabelNode) {
-                guestNameLabelNode.active = false;
+        // 直接設置文字（使用已預先查找的 properties）
+        if (this.roomCodeLabel && this.roomCodeLabel.getComponent) {
+            const label = this.roomCodeLabel.getComponent(cc.Label);
+            if (label) {
+                label.string = msg.code;
+                cc.log('[RoomManager] ✓ 已設定房間代碼:', msg.code);
             }
         }
 
-        // 隱藏開始按鈕（等待 Guest 加入）
+        if (this.waitingLabel && this.waitingLabel.getComponent) {
+            const label = this.waitingLabel.getComponent(cc.Label);
+            if (label) label.string = '等待另一位玩家加入...';
+        }
+
+        if (this.hostNameLabel && this.hostNameLabel.getComponent) {
+            const label = this.hostNameLabel.getComponent(cc.Label);
+            if (label) {
+                const hostName = (window._fbUser && window._fbUser.displayName) || '玩家1';
+                label.string = '🍳 ' + hostName;
+                cc.log('[RoomManager] ✓ 已設定房主名字:', hostName);
+            }
+        }
+
+        if (this.guestNameLabel) {
+            this.guestNameLabel.active = false;
+        }
+
         if (this.startBtn) this.startBtn.active = false;
     },
 
