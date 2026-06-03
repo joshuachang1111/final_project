@@ -9,10 +9,15 @@
  *   - 處理網路事件
  *
  * Inspector 需綁定：
+ *   hostPanel      — cc.Node，房間面板
+ *   joinPanel      — cc.Node，加入代碼面板
  *   roomCodeLabel  — cc.Label，顯示房間代碼
  *   hostNameLabel  — cc.Label，顯示房主名字
+ *   guestNameLabel — cc.Label，顯示 Guest 名字
  *   waitingLabel   — cc.Label，等待狀態文字
- *   startBtn       — cc.Button，Host 開始按鈕
+ *   startBtn       — cc.Button，Host 開始按鈕（只有 host 看到）
+ *   codeInput      — cc.EditBox，Guest 輸入房間代碼
+ *   joinErrorLabel — cc.Label，加入錯誤訊息
  */
 
 const FIREBASE_CONFIG = {
@@ -32,6 +37,7 @@ cc.Class({
         joinPanel:      { default: null, type: cc.Node },
         roomCodeLabel:  { default: null, type: cc.Label },
         hostNameLabel:  { default: null, type: cc.Label },
+        guestNameLabel: { default: null, type: cc.Label },
         waitingLabel:   { default: null, type: cc.Label },
         startBtn:       { default: null, type: cc.Button },
         codeInput:      { default: null, type: cc.EditBox },
@@ -48,18 +54,23 @@ cc.Class({
 
     _showRolePanel: function() {
         const isHost = window._nmRole === 'host';
-        const isGuest = window._nmRole === 'guest';
 
-        cc.log('[RoomManager] _showRolePanel, isHost=', isHost, 'isGuest=', isGuest);
+        cc.log('[RoomManager] _showRolePanel, isHost=', isHost);
 
-        if (this.hostPanel) {
-            this.hostPanel.active = isHost;
-            cc.log('[RoomManager] ✓ hostPanel.active=', isHost);
+        // guest 進入時先顯示 joinPanel（輸入代碼），加入後才顯示 hostPanel
+        // host 直接顯示 hostPanel
+        if (isHost) {
+            if (this.hostPanel) this.hostPanel.active = true;
+            if (this.joinPanel) this.joinPanel.active = false;
+        } else {
+            if (this.hostPanel) this.hostPanel.active = false;
+            if (this.joinPanel) this.joinPanel.active = true;
         }
-        if (this.joinPanel) {
-            this.joinPanel.active = isGuest;
-            cc.log('[RoomManager] ✓ joinPanel.active=', isGuest);
-        }
+    },
+
+    _switchToHostPanel: function() {
+        if (this.hostPanel) this.hostPanel.active = true;
+        if (this.joinPanel) this.joinPanel.active = false;
     },
 
     _initFirebase: function() {
@@ -84,7 +95,7 @@ cc.Class({
 
         const self = this;
         nm.on('room_created', function(msg) { self._onRoomCreated.call(self, msg); });
-        nm.on('guest_joined', function() { self._onGuestJoined.call(self); });
+        nm.on('guest_joined', function(msg) { self._onGuestJoined.call(self, msg); });
         nm.on('guest_waiting', function() { self._onGuestWaiting.call(self); });
         nm.on('start_game', function(msg) { self._onStartGameEvent.call(self, msg); });
         nm.on('player_disconnected', function() { self._onPlayerDisconnected.call(self); });
@@ -116,25 +127,43 @@ cc.Class({
             this.waitingLabel.string = '等待另一位玩家加入...';
         }
 
+        // start 按鈕初始隱藏，只在 guest 加入時才顯示（且只有 host 看得到）
         if (this.startBtn) {
             this.startBtn.node.active = false;
         }
     },
 
-    _onGuestJoined: function() {
+    _onGuestJoined: function(msg) {
         cc.log('[RoomManager] 玩家已加入');
+
+        // 如果是 host，更新 guest 名字並顯示 start 按鈕
+        if (window._nmRole === 'host') {
+            if (this.guestNameLabel && msg && msg.name) {
+                this.guestNameLabel.string = '🧑 ' + msg.name;
+                cc.log('[RoomManager] ✓ 已設定 guest 名字:', msg.name);
+            }
+
+            if (this.startBtn) {
+                this.startBtn.node.active = true;
+                cc.log('[RoomManager] ✓ 顯示 start 按鈕');
+            }
+        }
 
         if (this.waitingLabel) {
             this.waitingLabel.string = '玩家已加入！';
-        }
-
-        if (this.startBtn) {
-            this.startBtn.node.active = true;
         }
     },
 
     _onGuestWaiting: function() {
         cc.log('[RoomManager] Guest 進入等待狀態');
+
+        this._switchToHostPanel();
+
+        // 如果是 guest，確保 start 按鈕隱藏
+        if (window._nmRole === 'guest' && this.startBtn) {
+            this.startBtn.node.active = false;
+            cc.log('[RoomManager] ✓ Guest 模式，隱藏 start 按鈕');
+        }
 
         if (this.waitingLabel) {
             this.waitingLabel.string = '等待房主開始遊戲...';
