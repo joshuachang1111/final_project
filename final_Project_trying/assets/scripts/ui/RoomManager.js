@@ -50,10 +50,14 @@ cc.Class({
         // 初始化 Firebase
         this._initFirebase();
 
-        // 預設隱藏各 panel
-        if (this.hostPanel) this.hostPanel.active = false;
+        // 預設隱藏 joinPanel、startBtn
         if (this.joinPanel) this.joinPanel.active = false;
         if (this.startBtn) this.startBtn.active = false;
+
+        // 顯示 hostPanel（房間還沒建立時是等待狀態）
+        if (this.hostPanel) this.hostPanel.active = true;
+
+        cc.log('[RoomManager] hostPanel.active=', this.hostPanel ? this.hostPanel.active : 'null');
 
         // 綁定按鈕
         if (this.startBtn) {
