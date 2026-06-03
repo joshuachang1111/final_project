@@ -47,13 +47,6 @@ cc.Class({
             return;
         }
 
-        // 防止重複點擊
-        if (this._levelSelected) {
-            cc.log('[LevelSelectManager] 已經選過關卡，忽略重複點擊');
-            return;
-        }
-        this._levelSelected = true;
-
         cc.log('【LevelSelectManager】onLevelSelected 被觸發，levelId=', levelId);
         window._selectedLevel = levelId;
         cc.sys.localStorage.setItem('selectedLevel', levelId);
@@ -69,16 +62,17 @@ cc.Class({
             nm.startGame(levelId);
             cc.log('【LevelSelectManager】nm.startGame 已呼叫');
 
-            // 在下一幀進遊戲（避免場景加載衝突，同時 GameNetworkBridge 會確保同時開始）
+            // 延遲足夠時間後進遊戲，確保 levelselect 場景完全加載
             this.scheduleOnce(() => {
+                cc.log('【LevelSelectManager】即將進遊戲，場景名稱=', sceneName);
                 cc.director.loadScene(sceneName);
-                cc.log('【LevelSelectManager】Host 進遊戲');
-            }, 0);
+                cc.log('【LevelSelectManager】✓ loadScene 已呼叫');
+            }, 0.2);
         } else if (sceneName) {
             cc.log('警告：NetworkManager 不存在，直接進遊戲');
             this.scheduleOnce(() => {
                 cc.director.loadScene(sceneName);
-            }, 0);
+            }, 0.1);
         } else {
             cc.error('錯誤：找不到場景名稱，levelId=', levelId);
         }
