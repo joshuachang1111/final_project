@@ -13,19 +13,8 @@ cc.Class({
     extends: cc.Component,
 
     properties: {
-        // ── 房間 UI ──────────────────────────────────
+        // ── 主選單 UI ────────────────────────────────
         mainPanel:      { default: null, type: cc.Node },
-        hostPanel:      { default: null, type: cc.Node },
-        joinPanel:      { default: null, type: cc.Node },
-        roomCodeLabel:  { default: null, type: cc.Label },
-        waitingLabel:   { default: null, type: cc.Label },
-        codeInput:      { default: null, type: cc.EditBox },
-        joinErrorLabel: { default: null, type: cc.Label },
-
-        // ── 等待室玩家名字 ────────────────────────────
-        hostNameLabel:  { default: null, type: cc.Label }, // 顯示房主名字
-        guestNameLabel: { default: null, type: cc.Label }, // 顯示加入者名字
-        startBtn:       { default: null, type: cc.Node  }, // 只有 Host 看得到的開始按鈕
 
         // ── 使用者面板（左上角）──────────────────────
         loginBtn:       { default: null, type: cc.Node   }, // 未登入時顯示
@@ -37,28 +26,14 @@ cc.Class({
         nicknamePanel:  { default: null, type: cc.Node   }, // 彈出面板
         nicknameInput:  { default: null, type: cc.EditBox },
         nicknameError:  { default: null, type: cc.Label  },
-
-        // ── 排行榜 ──────────────────────────────────
-        leaderboardBtn:    { default: null, type: cc.Node }, // 排行榜按鈕
-        leaderboardPanel:  { default: null, type: cc.Node }, // 排行榜面板，預設隱藏
-        leaderboardContent: { default: null, type: cc.Node }, // ScrollView 的 content
     },
 
     onLoad() {
         // 確保彈出面板預設都是隱藏的
         if (this.nicknamePanel) this.nicknamePanel.active = false;
-        if (this.leaderboardPanel) this.leaderboardPanel.active = false;
-        if (this.startBtn)      this.startBtn.active      = false;
-        if (this.guestNameLabel) this.guestNameLabel.node.active = false;
-
-        // 綁定排行榜按鈕
-        if (this.leaderboardBtn) {
-            this.leaderboardBtn.on('click', this._onLeaderboardBtnClick, this);
-        }
 
         this._initFirebase();
         this._showMain();
-        this.scheduleOnce(() => this._setupNetworkCallbacks(), 0);
     },
 
     // ── Firebase ─────────────────────────────────────
@@ -139,210 +114,40 @@ cc.Class({
         }
     },
 
-    _setupNetworkCallbacks() {
-        const nm = window._nm;
-        if (!nm) {
-            cc.error('NetworkManager 找不到！請確認場景裡有 NetworkManager 節點並掛上腳本');
-            return;
-        }
-
-        nm.on('connecting', () => {
-            this.waitingLabel.node.active = true;
-            this.waitingLabel.string = '連線中，請稍候...';
-            this._showHost();
-        });
-
-        nm.on('room_created', (msg) => {
-            this.roomCodeLabel.string = msg.code;
-            this.waitingLabel.string = '等待另一位玩家加入...';
-            // 顯示房主名字
-            const hostName = (window._fbUser && window._fbUser.displayName) || '玩家1';
-            if (this.hostNameLabel) this.hostNameLabel.string = '🍳 ' + hostName;
-            if (this.guestNameLabel) this.guestNameLabel.node.active = false;
-            if (this.startBtn) this.startBtn.active = false;
-            this._showHost();
-        });
-
-        nm.on('guest_joined', (msg) => {
-            // Host 看到：顯示 guest 名字並開放開始按鈕
-            if (this.guestNameLabel) {
-                this.guestNameLabel.node.active = true;
-                this.guestNameLabel.string = '🍴 ' + (msg.name || '玩家2');
-            }
-            if (this.waitingLabel) this.waitingLabel.string = '玩家已加入！';
-            if (this.startBtn) this.startBtn.active = true;
-        });
-
-        nm.on('guest_waiting', (msg) => {
-            // Guest 看到：進入等待畫面，顯示自己名字，沒有開始按鈕
-            const guestName = msg.guestName || '玩家2';
-            if (this.hostNameLabel)  this.hostNameLabel.string = '🍳 等待房主...';
-            if (this.guestNameLabel) {
-                this.guestNameLabel.node.active = true;
-                this.guestNameLabel.string = '🍴 ' + guestName;
-            }
-            if (this.waitingLabel) this.waitingLabel.string = '等待房主開始遊戲...';
-            if (this.startBtn) this.startBtn.active = false;
-            this._showHost();
-        });
-
-        nm.on('host_info', (msg) => {
-            // Guest 收到 host 名字後更新顯示
-            if (this.hostNameLabel) this.hostNameLabel.string = '🍳 ' + (msg.name || '房主');
-        });
-
-        nm.on('start_game', (msg) => {
-            cc.sys.localStorage.setItem('playerRole', msg.role);
-            cc.sys.localStorage.setItem('selectedLevel', msg.level || 'susui');
-            cc.director.loadScene('game');
-        });
-
-        nm.on('error', (msg) => {
-            this.joinErrorLabel.string = msg.message;
-            this.joinErrorLabel.node.active = true;
-        });
-
-        nm.on('player_disconnected', () => {
-            this._showMain();
-        });
-
-        cc.log('MenuManager: NetworkManager 綁定成功');
-    },
 
     _showMain() {
         this.mainPanel.active = true;
-        this.hostPanel.active = false;
-        this.joinPanel.active = false;
         // 回主選單才恢復使用者面板
         this._updateUserPanel();
     },
 
-    _showHost() {
-        this.mainPanel.active = false;
-        this.hostPanel.active = true;
-        this.joinPanel.active = false;
-        // 進入等待室隱藏登入按鈕，避免在等待中途切換帳號
-        if (this.loginBtn)     this.loginBtn.active     = false;
-        if (this.userInfoNode) this.userInfoNode.active  = false;
-    },
-
-    _showJoin() {
-        this.mainPanel.active = false;
-        this.hostPanel.active = false;
-        this.joinPanel.active = true;
-        this.joinErrorLabel.node.active = false;
-        this.codeInput.string = '';
-    },
-
+    // 建立房間 - 跳轉到 room.fire
     onCreateRoom() {
-        cc.log('onCreateRoom clicked');
+        cc.log('[MenuManager] 建立房間按鈕被點擊');
         const nm = window._nm;
         if (!nm || !cc.isValid(nm.node)) {
-            cc.error('NetworkManager 不存在或已銷毀');
+            cc.error('[MenuManager] NetworkManager 不存在或已銷毀');
             return;
         }
         nm.createRoom();
+        cc.director.loadScene('room');
     },
 
+    // 加入房間 - 跳轉到 room.fire
     onJoinRoomBtn() {
-        this._showJoin();
+        cc.log('[MenuManager] 加入房間按鈕被點擊');
+        cc.director.loadScene('room');
     },
 
-    onConfirmJoin() {
-        const code = this.codeInput.string.trim();
-        if (code.length !== 4 || isNaN(code)) {
-            this.joinErrorLabel.string = '請輸入 4 位數字代碼';
-            this.joinErrorLabel.node.active = true;
-            return;
-        }
-        const nm = window._nm;
-        if (nm) nm.joinRoom(code);
-    },
-
-    onBack() {
-        this._showMain();
-    },
-
-    // HostPanel 的 Back 按鈕
-    onBackFromHost() {
-        const nm = window._nm;
-        if (nm) nm.leaveRoom();
-        this._showMain();
-    },
-
-    // Host 按下開始按鈕
-    onStartGame() {
-        cc.log('onStartGame clicked - 進入關卡選擇');
-        cc.director.loadScene('levelselect');
+    // 排行榜 - 跳轉到 leaderboard.fire
+    onLeaderboard() {
+        cc.log('[MenuManager] 排行榜按鈕被點擊');
+        cc.director.loadScene('leaderboard');
     },
 
     // 選角色按鈕
     onCharSelect() {
+        cc.log('[MenuManager] 選角色按鈕被點擊');
         cc.director.loadScene('charselect');
-    },
-
-    // ── 排行榜 ──────────────────────────────────
-
-    _onLeaderboardBtnClick() {
-        cc.log('[MenuManager] 排行榜按鈕被點擊');
-        if (this.leaderboardPanel) {
-            this.leaderboardPanel.active = true;
-            this._loadLeaderboard();
-        }
-    },
-
-    onCloseLeaderboard() {
-        if (this.leaderboardPanel) {
-            this.leaderboardPanel.active = false;
-        }
-    },
-
-    _loadLeaderboard() {
-        // 初始化 LeaderboardManager
-        if (!LeaderboardManager._db) {
-            LeaderboardManager.init();
-        }
-
-        cc.log('[MenuManager] 加載排行榜...');
-        LeaderboardManager.fetchTopScores(10).then((leaderboard) => {
-            if (!this.leaderboardContent) {
-                cc.warn('[MenuManager] leaderboardContent 未綁定');
-                return;
-            }
-
-            // 清空舊的內容
-            this.leaderboardContent.removeAllChildren();
-
-            if (leaderboard.length === 0) {
-                const emptyLabel = new cc.Node('empty');
-                const label = emptyLabel.addComponent(cc.Label);
-                label.string = '暫無記錄';
-                emptyLabel.parent = this.leaderboardContent;
-                emptyLabel.y = -20;
-                return;
-            }
-
-            // 動態生成排行榜列表
-            leaderboard.forEach((item, index) => {
-                const itemNode = new cc.Node(`rank_${item.rank}`);
-                itemNode.height = 40;
-
-                const label = itemNode.addComponent(cc.Label);
-                label.string = `${item.rank}. ${item.name} ── ${item.level} ── ${item.score}分`;
-                label.fontSize = 16;
-                label.lineHeight = 40;
-
-                itemNode.parent = this.leaderboardContent;
-                itemNode.y = -(index * 45 + 20);
-            });
-
-            // 調整 content 高度
-            const contentHeight = Math.max(leaderboard.length * 45 + 40, 300);
-            this.leaderboardContent.height = contentHeight;
-
-            cc.log('[MenuManager] 排行榜加載完成，共', leaderboard.length, '項');
-        }).catch((err) => {
-            cc.error('[MenuManager] 加載排行榜失敗:', err);
-        });
     },
 });
