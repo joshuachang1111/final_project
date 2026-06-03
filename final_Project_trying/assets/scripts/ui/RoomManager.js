@@ -57,6 +57,11 @@ cc.Class({
 
         cc.log('[RoomManager] _initPanels, isHost=', isHost);
 
+        // 初始化 guestNameLabel 為空（沒有玩家加入時不顯示）
+        if (this.guestNameLabel) {
+            this.guestNameLabel.string = '';
+        }
+
         // host：先隱藏，等 _onRoomCreated 觸發後再顯示
         // guest：先顯示 joinPanel，加入後才顯示 hostPanel
         if (isHost) {
