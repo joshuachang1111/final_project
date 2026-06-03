@@ -126,6 +126,11 @@ cc.Class({
             cc.log('[RoomManager] ✓ 已設定房主名字:', hostName);
         }
 
+        // 初始化 guestNameLabel 為空，等 guest 加入後才填充
+        if (this.guestNameLabel) {
+            this.guestNameLabel.string = '';
+        }
+
         if (this.waitingLabel) {
             this.waitingLabel.string = '等待另一位玩家加入...';
         }

@@ -47,6 +47,13 @@ cc.Class({
             return;
         }
 
+        // 防止重複點擊
+        if (this._levelSelected) {
+            cc.log('[LevelSelectManager] 已經選過關卡，忽略重複點擊');
+            return;
+        }
+        this._levelSelected = true;
+
         cc.log('【LevelSelectManager】onLevelSelected 被觸發，levelId=', levelId);
         window._selectedLevel = levelId;
         cc.sys.localStorage.setItem('selectedLevel', levelId);
@@ -56,14 +63,18 @@ cc.Class({
         const sceneName = LEVEL_SCENE_MAP[levelId];
 
         if (nm && sceneName) {
-            cc.log('【LevelSelectManager】Host 和 Guest 同時進遊戲');
+            cc.log('【LevelSelectManager】Host 呼叫 nm.startGame 和 loadScene');
 
-            // Host 和 Guest 同時進遊戲（同時 loadScene，而不是 Host 延遲）
+            // Host 和 Guest 同時進遊戲（同時執行，不延遲）
             nm.startGame(levelId);
+            cc.log('【LevelSelectManager】nm.startGame 已呼叫，即將 loadScene');
             cc.director.loadScene(sceneName);
+            cc.log('【LevelSelectManager】loadScene 已呼叫');
         } else if (sceneName) {
             cc.log('警告：NetworkManager 不存在，直接進遊戲');
             cc.director.loadScene(sceneName);
+        } else {
+            cc.error('錯誤：找不到場景名稱，levelId=', levelId);
         }
     },
 
