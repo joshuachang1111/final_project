@@ -35,53 +35,24 @@ cc.Class({
     properties: {
         hostPanel:      { default: null, type: cc.Node },
         joinPanel:      { default: null, type: cc.Node },
-        roomCodeLabel:  { default: null, type: cc.Node }, // 支持綁定 Node 或 Label
-        waitingLabel:   { default: null, type: cc.Node }, // 支持綁定 Node 或 Label
+        roomCodeLabel:  { default: null, type: cc.Node },
+        waitingLabel:   { default: null, type: cc.Node },
         codeInput:      { default: null, type: cc.EditBox },
-        joinErrorLabel: { default: null, type: cc.Node }, // 支持綁定 Node 或 Label
-        hostNameLabel:  { default: null, type: cc.Node }, // 支持綁定 Node 或 Label
-        guestNameLabel: { default: null, type: cc.Node }, // 支持綁定 Node 或 Label
+        joinErrorLabel: { default: null, type: cc.Node },
+        hostNameLabel:  { default: null, type: cc.Node },
+        guestNameLabel: { default: null, type: cc.Node },
         startBtn:       { default: null, type: cc.Node },
     },
 
-    // 輔助函數：自動獲取 Label 組件
-    _getLabel(node) {
+    _getLabel: function(node) {
         if (!node) return null;
         if (node.getComponent && node.getComponent(cc.Label)) {
             return node.getComponent(cc.Label);
         }
-        return node; // 如果本身是 Label component，直接返回
+        return node;
     },
 
-    onLoad() {
-        cc.log('[RoomManager] onLoad');
-
-        // 初始化 Firebase
-        this._initFirebase();
-
-        // 自動尋找節點（如果 Inspector 沒綁定）
-        this._autoFindNodes();
-
-        // 預設隱藏 joinPanel、startBtn
-        if (this.joinPanel) this.joinPanel.active = false;
-        if (this.startBtn) this.startBtn.active = false;
-
-        // 顯示 hostPanel（房間還沒建立時是等待狀態）
-        if (this.hostPanel) this.hostPanel.active = true;
-
-        cc.log('[RoomManager] hostPanel.active=', this.hostPanel ? this.hostPanel.active : 'null');
-
-        // 綁定按鈕
-        if (this.startBtn) {
-            this.startBtn.on('click', this._onStartGame, this);
-        }
-
-        // 設定 NetworkManager 回呼
-        this.scheduleOnce(() => this._setupNetworkCallbacks(), 0);
-    },
-
-    // 自動尋找節點（如果 Inspector 沒綁定）
-    _autoFindNodes() {
+    _autoFindNodes: function() {
         const hostPanel = this.node.getChildByName('hostPanel');
         if (!this.hostPanel && hostPanel) {
             this.hostPanel = hostPanel;
@@ -132,7 +103,27 @@ cc.Class({
         }
     },
 
-    onDestroy() {
+    onLoad: function() {
+        cc.log('[RoomManager] onLoad');
+
+        this._initFirebase();
+        this._autoFindNodes();
+
+        if (this.joinPanel) this.joinPanel.active = false;
+        if (this.startBtn) this.startBtn.active = false;
+
+        if (this.hostPanel) this.hostPanel.active = true;
+
+        cc.log('[RoomManager] hostPanel.active=', this.hostPanel ? this.hostPanel.active : 'null');
+
+        if (this.startBtn) {
+            this.startBtn.on('click', this._onStartGame, this);
+        }
+
+        this.scheduleOnce(() => this._setupNetworkCallbacks(), 0);
+    },
+
+    onDestroy: function() {
         const nm = window._nm;
         if (nm) {
             nm.off('connecting', this._onConnecting, this);
@@ -140,7 +131,7 @@ cc.Class({
             nm.off('guest_joined', this._onGuestJoined, this);
             nm.off('guest_waiting', this._onGuestWaiting, this);
             nm.off('host_info', this._onHostInfo, this);
-            nm.off('start_game', this._onStartGame, this);
+            nm.off('start_game', this._onStartGameEvent, this);
             nm.off('error', this._onError, this);
             nm.off('player_disconnected', this._onPlayerDisconnected, this);
         }
@@ -150,7 +141,7 @@ cc.Class({
         }
     },
 
-    _initFirebase() {
+    _initFirebase: function() {
         if (typeof firebase === 'undefined') {
             cc.error('[RoomManager] Firebase SDK 未載入');
             return;
@@ -164,7 +155,7 @@ cc.Class({
         cc.log('[RoomManager] Firebase 初始化完成');
     },
 
-    _setupNetworkCallbacks() {
+    _setupNetworkCallbacks: function() {
         const nm = window._nm;
         if (!nm) {
             cc.error('[RoomManager] NetworkManager 找不到');
@@ -181,15 +172,13 @@ cc.Class({
         nm.on('player_disconnected', this._onPlayerDisconnected, this);
     },
 
-    // ── 網路事件 ──────────────────────────────────────
-
-    _onConnecting() {
+    _onConnecting: function() {
         cc.log('[RoomManager] 連線中...');
         const label = this._getLabel(this.waitingLabel);
         if (label) label.string = '連線中，請稍候...';
     },
 
-    _onRoomCreated(msg) {
+    _onRoomCreated: function(msg) {
         cc.log('[RoomManager] 房間已建立，代碼=', msg.code);
 
         if (this.hostPanel) this.hostPanel.active = true;
@@ -221,7 +210,7 @@ cc.Class({
         if (this.startBtn) this.startBtn.active = false;
     },
 
-    _onGuestJoined(msg) {
+    _onGuestJoined: function(msg) {
         cc.log('[RoomManager] 玩家已加入');
         if (this.guestNameLabel) {
             const guestNode = (this.guestNameLabel.node || this.guestNameLabel);
@@ -234,7 +223,7 @@ cc.Class({
         if (this.startBtn) this.startBtn.active = true;
     },
 
-    _onGuestWaiting(msg) {
+    _onGuestWaiting: function(msg) {
         cc.log('[RoomManager] Guest 進入等待狀態');
         const guestName = msg.guestName || '玩家2';
         const hostLabel = this._getLabel(this.hostNameLabel);
@@ -252,22 +241,21 @@ cc.Class({
         if (this.startBtn) this.startBtn.active = false;
     },
 
-    _onHostInfo(msg) {
+    _onHostInfo: function(msg) {
         cc.log('[RoomManager] 收到房主資訊');
         const hostLabel = this._getLabel(this.hostNameLabel);
         if (hostLabel) hostLabel.string = '🍳 ' + (msg.name || '房主');
     },
 
-    _onStartGameEvent(msg) {
+    _onStartGameEvent: function(msg) {
         cc.log('[RoomManager] start_game 事件，role=', window._nmRole);
         cc.sys.localStorage.setItem('playerRole', msg.role);
         cc.sys.localStorage.setItem('selectedLevel', msg.level || 'susui');
-        // 決定要進 levelselect 還是 game
         const targetScene = window._nmRole === 'host' ? 'levelselect' : 'game';
         cc.director.loadScene(targetScene);
     },
 
-    _onError(msg) {
+    _onError: function(msg) {
         cc.log('[RoomManager] 網路錯誤:', msg.message);
         if (this.joinErrorLabel) {
             const errorNode = (this.joinErrorLabel.node || this.joinErrorLabel);
@@ -277,26 +265,24 @@ cc.Class({
         }
     },
 
-    _onPlayerDisconnected() {
+    _onPlayerDisconnected: function() {
         cc.log('[RoomManager] 玩家斷線，回到菜單');
         cc.director.loadScene('menu');
     },
 
-    // ── 按鈕 ──────────────────────────────────────
-
-    onCreateRoom() {
+    onCreateRoom: function() {
         cc.log('[RoomManager] 建立房間按鈕被點擊');
         const nm = window._nm;
         if (nm) nm.createRoom();
     },
 
-    onJoinRoomBtn() {
+    onJoinRoomBtn: function() {
         cc.log('[RoomManager] 加入房間按鈕被點擊');
         if (this.joinPanel) this.joinPanel.active = true;
         if (this.hostPanel) this.hostPanel.active = false;
     },
 
-    onConfirmJoin() {
+    onConfirmJoin: function() {
         const code = this.codeInput ? this.codeInput.string.trim() : '';
         if (code.length !== 4 || isNaN(code)) {
             if (this.joinErrorLabel) {
@@ -312,14 +298,14 @@ cc.Class({
         if (nm) nm.joinRoom(code);
     },
 
-    onBack() {
+    onBack: function() {
         cc.log('[RoomManager] 返回按鈕被點擊');
         const nm = window._nm;
         if (nm) nm.leaveRoom();
         cc.director.loadScene('menu');
     },
 
-    _onStartGame() {
+    _onStartGame: function() {
         if (this._clicked) return;
         if (window._nmRole === 'guest') return;
         this._clicked = true;
