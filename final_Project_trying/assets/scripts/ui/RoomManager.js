@@ -59,6 +59,9 @@ cc.Class({
         // 初始化 Firebase
         this._initFirebase();
 
+        // 自動尋找節點（如果 Inspector 沒綁定）
+        this._autoFindNodes();
+
         // 預設隱藏 joinPanel、startBtn
         if (this.joinPanel) this.joinPanel.active = false;
         if (this.startBtn) this.startBtn.active = false;
@@ -75,6 +78,58 @@ cc.Class({
 
         // 設定 NetworkManager 回呼
         this.scheduleOnce(() => this._setupNetworkCallbacks(), 0);
+    },
+
+    // 自動尋找節點（如果 Inspector 沒綁定）
+    _autoFindNodes() {
+        const hostPanel = this.node.getChildByName('hostPanel');
+        if (!this.hostPanel && hostPanel) {
+            this.hostPanel = hostPanel;
+            cc.log('[RoomManager] 自動找到 hostPanel');
+        }
+
+        if (this.hostPanel) {
+            if (!this.roomCodeLabel) {
+                const node = this.hostPanel.getChildByName('roomCodeLabel');
+                this.roomCodeLabel = node;
+                cc.log('[RoomManager] 自動找到 roomCodeLabel');
+            }
+            if (!this.waitingLabel) {
+                const node = this.hostPanel.getChildByName('WaitingLabel') ||
+                            this.hostPanel.getChildByName('waitingLabel');
+                this.waitingLabel = node;
+                cc.log('[RoomManager] 自動找到 waitingLabel');
+            }
+            if (!this.hostNameLabel) {
+                const node = this.hostPanel.getChildByName('hostNameLabel');
+                this.hostNameLabel = node;
+                cc.log('[RoomManager] 自動找到 hostNameLabel');
+            }
+            if (!this.guestNameLabel) {
+                const node = this.hostPanel.getChildByName('guestNameLabel');
+                this.guestNameLabel = node;
+                cc.log('[RoomManager] 自動找到 guestNameLabel');
+            }
+        }
+
+        const joinPanel = this.node.getChildByName('joinPanel');
+        if (!this.joinPanel && joinPanel) {
+            this.joinPanel = joinPanel;
+            cc.log('[RoomManager] 自動找到 joinPanel');
+        }
+
+        if (this.joinPanel) {
+            if (!this.codeInput) {
+                const node = this.joinPanel.getChildByName('codeInput');
+                this.codeInput = node ? node.getComponent(cc.EditBox) : null;
+                cc.log('[RoomManager] 自動找到 codeInput');
+            }
+            if (!this.joinErrorLabel) {
+                const node = this.joinPanel.getChildByName('joinErrorLabel');
+                this.joinErrorLabel = node;
+                cc.log('[RoomManager] 自動找到 joinErrorLabel');
+            }
+        }
     },
 
     onDestroy() {
