@@ -2,10 +2,12 @@ const EventBus    = require('./EventBus');
 const GameManager = require('./GameManager');
 
 // ── Photon event codes ────────────────────────────────────
-const EV_MOVE    = 10;   // 玩家移動
-const EV_STATION = 11;   // 站台互動（pickup / place）
-const EV_SERVE   = 12;   // 出餐成功（用於同步分數與訂單移除，避免雙重計分）
-const EV_CHAR    = 13;   // 角色選擇同步（遊戲開始時各自廣播）
+const EV_MOVE       = 10;   // 玩家移動
+const EV_STATION    = 11;   // 站台互動（pickup / place）
+const EV_SERVE      = 12;   // 出餐成功（用於同步分數與訂單移除，避免雙重計分）
+const EV_CHAR       = 13;   // 角色選擇同步（遊戲開始時各自廣播）
+const EV_TICK_SYNC  = 20;   // 計時器同步（Host 廣播，保持兩人計時同步）
+const EV_SCORE_SYNC = 21;   // 分數同步（任一方分數改變時廣播）
 
 cc.Class({
     extends: cc.Component,
@@ -22,12 +24,14 @@ cc.Class({
         this._onLocalPickup  = this._handleLocalPickup.bind(this);
         this._onLocalPlace   = this._handleLocalPlace.bind(this);
         this._onLocalServe   = this._handleLocalServe.bind(this);
+        this._onLocalScore   = this._handleLocalScore.bind(this);
         this._onGameEvent    = (msg) => this._applyGameEvent.call(this, msg);
 
         EventBus.on('player:moved',    this._onLocalMove,   this);
         EventBus.on('station:pickup',  this._onLocalPickup, this);
         EventBus.on('station:place',   this._onLocalPlace,  this);
         EventBus.on('station:serve',   this._onLocalServe,  this);
+        EventBus.on('game:score',      this._onLocalScore,  this);
 
         if (window._nm) {
             window._nm.on('game_event', this._onGameEvent);
@@ -81,6 +85,9 @@ cc.Class({
             if (GameManager.instance) {
                 cc.log('[GameNetworkBridge] 呼叫 GameManager.startGame()');
                 GameManager.instance.startGame();
+
+                // 開始計時器同步（Host 定期發送，Guest 接收）
+                this._setupTimerSync();
             } else {
                 cc.error('[GameNetworkBridge] ✗ GameManager.instance 不存在！');
             }
@@ -89,14 +96,36 @@ cc.Class({
         }
     },
 
+    _setupTimerSync() {
+        // Host 每 0.5 秒廣播一次計時器，保持兩人同步
+        if (this._role === 'host') {
+            this._timerSyncSchedule = setInterval(() => {
+                if (!GameManager.instance) return;
+                const timeLeft = GameManager.instance.timeLeft;
+                if (window._nm) {
+                    window._nm.sendGameEvent(EV_TICK_SYNC, {
+                        timeLeft: timeLeft,
+                    });
+                }
+            }, 500);
+        }
+    },
+
     onDestroy() {
         EventBus.off('player:moved',   this._onLocalMove,   this);
         EventBus.off('station:pickup', this._onLocalPickup, this);
         EventBus.off('station:place',  this._onLocalPlace,  this);
         EventBus.off('station:serve',  this._onLocalServe,  this);
+        EventBus.off('game:score',     this._onLocalScore,  this);
 
         if (window._nm) {
             window._nm.off('game_event', this._onGameEvent);
+        }
+
+        // 清除計時器同步
+        if (this._timerSyncSchedule) {
+            clearInterval(this._timerSyncSchedule);
+            this._timerSyncSchedule = null;
         }
     },
 
@@ -149,6 +178,14 @@ cc.Class({
         });
     },
 
+    _handleLocalScore(data) {
+        // 分數改變時，廣播給對方
+        if (!window._nm) return;
+        window._nm.sendGameEvent(EV_SCORE_SYNC, {
+            score: data.score,
+        });
+    },
+
     // ─── Remote → Local ──────────────────────────────────
 
     _applyGameEvent(msg) {
@@ -161,10 +198,52 @@ cc.Class({
             return;
         }
 
+        // code 20: 計時器同步（只有 Guest 需要接收）
+        if (code === EV_TICK_SYNC) {
+            this._applyRemoteTickSync(data);
+            return;
+        }
+
+        // code 21: 分數同步（只有 Guest 需要接收對方的分數）
+        if (code === EV_SCORE_SYNC) {
+            this._applyRemoteScoreSync(data);
+            return;
+        }
+
         // 其他遊戲事件
         if      (code === EV_MOVE)    this._applyRemoteMove(data);
         else if (code === EV_STATION) this._applyRemoteStation(data);
         else if (code === EV_SERVE)   this._applyRemoteServe(data);
+    },
+
+    _applyRemoteTickSync(data) {
+        // Guest 接收 Host 廣播的計時器，強制同步本地計時器
+        if (this._role === 'host') return;  // Host 不需要接收自己的廣播
+
+        if (!GameManager.instance) return;
+        const currentTime = GameManager.instance.timeLeft;
+
+        // 如果時間差超過 1 秒，則同步
+        if (Math.abs(currentTime - data.timeLeft) > 1) {
+            cc.log('[GameNetworkBridge] Guest 計時器同步：', currentTime, ' → ', data.timeLeft);
+            GameManager.instance._timeLeft = data.timeLeft;
+            EventBus.emit('game:tick', { timeLeft: data.timeLeft });
+        }
+    },
+
+    _applyRemoteScoreSync(data) {
+        // Guest 接收 Host 廣播的分數，更新本地分數
+        if (this._role === 'host') return;  // Host 不需要接收自己的廣播
+
+        if (!GameManager.instance) return;
+        const currentScore = GameManager.instance.score;
+
+        // 如果分數不同，則同步
+        if (currentScore !== data.score) {
+            cc.log('[GameNetworkBridge] Guest 分數同步：', currentScore, ' → ', data.score);
+            GameManager.instance._score = data.score;
+            EventBus.emit('game:score', { score: data.score });
+        }
     },
 
     _applyRemoteMove(data) {
