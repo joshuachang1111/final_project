@@ -91,6 +91,15 @@ const ResultSceneManager = cc.Class({
 
         // 監聽遊戲結束事件，顯示分數並上傳排行榜
         EventBus.on('game:end', this._onGameEnd, this);
+
+        // Guest 訂閱 Host 的 result 選擇 + start_game 兜底，否則 Host 按再玩一次
+        // 之後這邊只是 log「Code 4 收到」但沒人接，Guest 永遠卡在 result scene。
+        if (!isHost && window._nm) {
+            window._nm.on('host_result_choice', this._onHostChoice, this);
+            // Fallback: 如果 code 4 已經處理過、但 Guest 還沒切到 levelselect
+            // 之前 Host 就先按關卡了，至少能直接補進遊戲。
+            window._nm.on('start_game', this._onStartGameFallback, this);
+        }
     },
 
     _initFirebase() {
@@ -118,6 +127,11 @@ const ResultSceneManager = cc.Class({
         }
         if (cc.isValid(this.leaderboardBtn) && cc.isValid(this.leaderboardBtn.node)) {
             this.leaderboardBtn.node.off('click', this._onLeaderboard, this);
+        }
+
+        if (window._nm) {
+            window._nm.off('host_result_choice', this._onHostChoice);
+            window._nm.off('start_game', this._onStartGameFallback);
         }
     },
 
@@ -223,6 +237,38 @@ const ResultSceneManager = cc.Class({
     _onLeaderboard() {
         cc.log('[ResultSceneManager] 查看排行榜按鈕被點擊');
         cc.director.loadScene('leaderboard');
+    },
+
+    // ── Guest 收到 Host 的選擇 ───────────────────────────
+
+    _onHostChoice(msg) {
+        if (this._clicked) return;
+        this._clicked = true;
+        cc.log('[ResultSceneManager] Guest 收到 host 選擇:', msg.choice);
+        if (msg.choice === 'replay') {
+            if (window._nm) window._nm._gameStarted = false;
+            EventBus.clear();
+            cc.director.loadScene('levelselect');
+        } else {
+            // menu
+            if (window._nm && typeof window._nm.leaveRoom === 'function') {
+                window._nm.leaveRoom();
+            }
+            EventBus.clear();
+            cc.director.loadScene('menu');
+        }
+    },
+
+    // Fallback: Guest 還沒切到 levelselect，Host 就已經按關卡了。
+    // 直接補進 game scene，selectedLevel 用 NM 傳來的。
+    _onStartGameFallback(msg) {
+        if (this._clicked) return;
+        this._clicked = true;
+        cc.log('[ResultSceneManager] Guest 從 result 直接補進 game, level=', msg.level);
+        cc.sys.localStorage.setItem('selectedLevel', msg.level || 'susui');
+        cc.sys.localStorage.setItem('playerRole', window._nmRole || 'guest');
+        EventBus.clear();
+        cc.director.loadScene('game');
     },
 
     onCloseLeaderboard() {

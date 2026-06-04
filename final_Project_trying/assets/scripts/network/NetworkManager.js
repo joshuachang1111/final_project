@@ -62,7 +62,16 @@ cc.Class({
         this._client.onJoinRoom = () => {
             const room = this._client.myRoom();
             window._nmRoomCode = room.name;
-            if (room.playerCount === 1) {
+
+            // 信任 MenuManager 在進 room scene 之前設好的 _nmRole（onCreateRoom='host'
+            // / onJoinRoomBtn='guest'）。原本用 room.playerCount === 1 判斷有 race：
+            // Photon SDK 在 onJoinRoom 觸發瞬間 myRoom().playerCount 不一定已經更新到
+            // 2，會導致 Guest 被誤判成 host，於是不 raise code 1、也接不到 code 3
+            // (host_info)，P2 畫面上看不到 P1 名字。playerCount 只當沒設角色時的 fallback。
+            const presetRole = window._nmRole;
+            cc.log('[NM onJoinRoom] presetRole=', presetRole, 'playerCount=', room.playerCount);
+
+            if (presetRole === 'host' || (!presetRole && room.playerCount === 1)) {
                 window._nmRole = 'host';
                 this._emit('room_created', { code: room.name });
             } else {
@@ -86,8 +95,13 @@ cc.Class({
                 cc.log('【Code 2 收到】role=', window._nmRole, 'data=', JSON.stringify(data), '_gameStarted=', this._gameStarted);
                 if (!this._gameStarted) {
                     this._gameStarted = true;
+                    const startData = { role: window._nmRole, level: data.level || 'susui' };
+                    // Race-safe buffer：Guest 在 Result→levelselect 場景轉場中時，
+                    // 這個 emit 沒人訂閱會被丟掉。把最後一次資料存起來讓
+                    // LevelSelectManager.onLoad 補拿。
+                    this._lastStartGameData = startData;
                     cc.log('【emit start_game】即將進入遊戲');
-                    this._emit('start_game', { role: window._nmRole, level: data.level || 'susui' });
+                    this._emit('start_game', startData);
                 } else {
                     cc.log('【Code 2 忽略】_gameStarted 已為 true');
                 }
@@ -96,6 +110,11 @@ cc.Class({
             } else if (code === 4 && data && data.action === 'host_result_choice') {
                 // Host 在結算畫面選了 replay 或 menu，通知 Guest 跟著切場景
                 cc.log('【Code 4 收到】host 選擇：', data.choice);
+                if (data.choice === 'replay') {
+                    // 新一輪，清掉前一場可能殘留的 start_game buffer
+                    this._gameStarted = false;
+                    this._lastStartGameData = null;
+                }
                 this._emit('host_result_choice', { choice: data.choice });
             } else {
                 this._emit('game_event', { code, data, actorNr });
@@ -204,6 +223,7 @@ cc.Class({
 
     leaveRoom() {
         this._gameStarted = false;
+        this._lastStartGameData = null;
         window._nmRole = null;
         window._nmRoomCode = null;
         if (this._client) {

@@ -194,6 +194,12 @@ cc.Class({
                 this.startBtn.node.active = true;
                 cc.log('[RoomManager] ✓ 顯示 start 按鈕');
             }
+
+            // 兩人都到齊了，房號就不用再給 host 看（不然 Guest 也已經知道了）
+            if (this.roomCodeLabel) {
+                this.roomCodeLabel.node.active = false;
+                cc.log('[RoomManager] ✓ 隱藏房號（兩人到齊）');
+            }
         }
 
         if (this.waitingLabel) {
@@ -205,6 +211,21 @@ cc.Class({
         cc.log('[RoomManager] Guest 進入等待狀態');
 
         this._switchToHostPanel();
+
+        // Guest 自己加入時，host 一定已經在 → 兩人到齊，直接藏房號（房號是給
+        // 「等對方加入」階段看的，加進來之後沒用了，而且 Guest 自己剛剛才打過代碼）。
+        // guestNameLabel 補上自己的名字（原本只有 Host 的 _onGuestJoined 會填，
+        // Guest 永遠不會跑那條，所以自己畫面上自己名字是空的）。
+        if (this.roomCodeLabel) {
+            this.roomCodeLabel.node.active = false;
+            cc.log('[RoomManager] ✓ Guest 端隱藏房號（兩人到齊）');
+        }
+        if (this.guestNameLabel) {
+            const guestName = (window._fbUser && window._fbUser.displayName) || '玩家2';
+            this.guestNameLabel.string = '🧑 ' + guestName;
+            this.guestNameLabel.node.active = true;
+            cc.log('[RoomManager] ✓ Guest 端顯示自己名字:', guestName);
+        }
 
         // 如果是 guest，確保 start 按鈕隱藏
         if (window._nmRole === 'guest' && this.startBtn) {

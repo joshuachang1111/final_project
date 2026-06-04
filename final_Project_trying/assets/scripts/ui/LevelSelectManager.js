@@ -20,6 +20,17 @@ cc.Class({
         // 再訂閱會在 nm.startGame() 的 _emit 收到一次重複觸發 double-nav）。
         if (window._nmRole === 'guest' && window._nm) {
             window._nm.on('start_game', this._onHostStartedGame, this);
+
+            // Race-safe：Host 在 Guest 還在 Result→levelselect 轉場時就按下關卡，
+            // 那次 emit 沒人訂閱會被吃掉。NM 把最後一次 code 2 資料 buffer 起來
+            // 在 _lastStartGameData，這裡補拿一次。下一幀執行避免跟 onLoad 互卡。
+            if (window._nm._lastStartGameData) {
+                const buffered = window._nm._lastStartGameData;
+                window._nm._lastStartGameData = null;   // consume once
+                this.scheduleOnce(() => {
+                    if (!this._navigated) this._onHostStartedGame(buffered);
+                }, 0);
+            }
         }
     },
 
@@ -68,6 +79,10 @@ cc.Class({
     },
 
     _onHostStartedGame(msg) {
+        // 防止 subscriber 跟 buffer 補拿同時 fire 造成 double-nav
+        if (this._navigated) return;
+        this._navigated = true;
+
         cc.log('[LevelSelectManager] Guest 收到 start_game, level=', msg.level);
         cc.sys.localStorage.setItem('selectedLevel', msg.level || 'susui');
         cc.sys.localStorage.setItem('playerRole', window._nmRole || 'guest');
