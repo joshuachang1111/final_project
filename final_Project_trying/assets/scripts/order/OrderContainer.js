@@ -24,10 +24,15 @@ cc.Class({
     },
 
     onLoad() {
+        cc.log('[OrderContainer] onLoad, this.node=', !!this.node);
+
         if (EventBus && typeof EventBus.on === 'function') {
             EventBus.on('order:added', this._onOrderAdded, this);
             EventBus.on('order:completed', this._onOrderRemoved, this);
             EventBus.on('order:expired', this._onOrderRemoved, this);
+            cc.log('[OrderContainer] 訂單事件監聽已設置');
+        } else {
+            cc.error('[OrderContainer] EventBus 不存在或沒有 on 方法！');
         }
     },
 
@@ -42,7 +47,11 @@ cc.Class({
     _onOrderAdded(data) {
         cc.log('[OrderUIHandler] 生成新訂單，ID:', data.id);
 
-        
+        // 防禦檢查：確保節點存在
+        if (!this.node) {
+            cc.error('[OrderContainer] this.node 是 null，無法創建訂單！');
+            return;
+        }
 
         // 1. 建立訂單主節點（❌ 這裡完全不加任何 cc.Label，保證沒有任何字）
         const orderNode = new cc.Node('order_' + data.id);
