@@ -284,9 +284,11 @@ const CharSelectManager = cc.Class({
             // _mkRect 已建好 cc.Sprite，直接取用，不能再 addComponent
             const iconSp = iconBg.getComponent(cc.Sprite);
             iconSp.sizeMode = cc.Sprite.SizeMode.CUSTOM;
-            iconBg.setContentSize(70, 70);
+            iconBg.setContentSize(100, 100);
+            iconBg.setPosition(0, h / 2 - 55);  // 因為變大，位置微調
             cc.resources.load(skill.icon, cc.Texture2D, (err, tex) => {
                 if (!err && tex && cc.isValid(iconBg)) {
+                    iconBg.color = cc.Color.WHITE;   // 清除深藍 tint，讓圖片原色顯示
                     iconSp.spriteFrame = new cc.SpriteFrame(tex);
                 }
             });
