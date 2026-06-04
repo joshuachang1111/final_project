@@ -202,6 +202,22 @@ InputHandler → PlayerController → AnimationController
     - `seed` 為 LCG 種子亂數，兩端用相同 seed 確保走法完全一致，零額外封包
   - `GameManager.getAllPlayers()` 供 BoarController 查詢所有玩家
   - `PlayerController.boarPrefab`（@property）：game.fire 兩個玩家都已設定
+- **技能三：草皮大尖叫**（skill_3，E 鍵，冷卻 30 秒）
+  - 所有玩家方向顛倒 + 速度 × 1.5，持續 5 秒
+  - 技能圖示：`resources/skill_scream_icon.png`
+  - **架構**：emit `skill:chaos_start`（EventBus）→ 所有 PlayerController 的 `_onChaosStart()` 設 `_chaosTimer = 5`
+  - 廣播：EV_SKILL(14) `{ skill: 'skill_3' }` → 對方機器同樣 emit `skill:chaos_start`
+  - `_chaosTimer` 在 update 裡遞減，`inChaos` 時翻轉 vx/vy + speed × 1.5
+- **技能四：清交小徑**（skill_4，E 鍵，冷卻 20 秒）
+  - 隨機傳送：mode 0 = 自己傳到隊友旁邊，mode 1 = 隊友傳到自己旁邊（50/50）
+  - 傳送偏移 +30px（避免完全重疊），持有食材不受影響
+  - 技能圖示：`resources/skill_road_icon.png`
+  - **架構**：
+    - `_useTeleport()`: 產生 mode，mode=0 直接 teleportTo，mode=1 等對方收到後自行執行
+    - EV_SKILL(14) payload 帶 `{ skill, mode, x, y }`（mode 是 bug fix 補上的欄位）
+    - 對方收到 mode=1 → `_onRemoteSkill` 呼叫 `_teleportTo(data.x+30, data.y)`
+  - `_getTeammate()`: 透過 `GameManager.getPlayer(remoteId)` 取得隊友 controller
+
 - **技能二：二退**（skill_2，E 鍵，冷卻 20 秒）
   - 移除畫面上最舊的訂單（`_orders[0]`，不扣分）並立刻生成一張新訂單
   - 技能圖示：`resources/skill_drop_icon.png`
@@ -215,25 +231,34 @@ InputHandler → PlayerController → AnimationController
 ```
 E 鍵
   → PlayerController._useSkill()
-      → 檢查 _skillCooldowns[skill]
+      → 單機保護：!nmRole 時只有 playerId=1 觸發
+      → 檢查 _skillCooldowns[skill]（per-instance，各自獨立）
       → skill_1：_spawnBoar()（熊貓）
       → skill_2：_useRefreshOrder()（二退）
           → EventBus.emit('order:refresh')  ← OrderManager 監聽
           → EventBus.emit('skill:local')    ← Bridge 廣播 EV_SKILL(14)
+      → skill_3：草皮大尖叫
+          → EventBus.emit('skill:chaos_start') ← 所有 PlayerController 監聽
+          → EventBus.emit('skill:local')
+      → skill_4：_useTeleport()（清交小徑）
+          → 隨機 mode 0/1，mode=0 直接 _teleportTo
+          → EventBus.emit('skill:local', { skill, mode, x, y })
 
-遠端收到 EV_SKILL(14)
+遠端收到 EV_SKILL(14)  payload: { skill, x, y, seed, mode }
   → GameNetworkBridge._applyRemoteSkill()
   → EventBus.emit('skill:remote')
   → PlayerController._onRemoteSkill()
       → skill_1：_spawnBoarAt(x, y, seed)
       → skill_2：EventBus.emit('order:refresh')
+      → skill_3：EventBus.emit('skill:chaos_start')
+      → skill_4：mode=1 → _teleportTo(x+30, y)
 ```
 
 ### 🚧 尚缺
 - 多張地圖（目前四個關卡都是同一個背景）
 - 斷線處理（遊戲中）
 - `window._selectedLevel` 在 GameManager 中尚未使用（關卡差異化待實作）
-- 技能 3/4 後端邏輯（charselect 介面已完成，skill_1/2 已實作）
+- 技能冷卻 UI（目前只有 console log，沒有視覺倒數顯示）
 - 排行榜 UI 節點綁定尚需在 Cocos Creator 編輯器完成
 
 ### Sprite Sheet 製作流程（備忘）
@@ -310,6 +335,8 @@ cp ~/Desktop/charselect_bg.png .../assets/resources/charselect_bg.png
 | 16 | 技能批 | 兩端熊貓走法不同步 | `BoarController.js`（LCG 種子亂數）|
 | 17 | 選角色批 | 選取框不顯示（Sprite 無 spriteFrame 不渲染）| `CharSelectManager.js`（改 cc.Graphics）|
 | 18 | 選角色批 | 技能圖示顏色暗沉（node.color tint）| `CharSelectManager.js`（載入後設白色）|
+| 19 | 技能批 | 單機測試兩 controller 同幀雙重發動技能 | `PlayerController._useSkill`（無 nmRole 時只有 playerId=1 觸發）|
+| 20 | 技能批 | 清交小徑 mode=1 隊友傳送失效 | `GameNetworkBridge`（EV_SKILL payload 補上 mode 欄位）|
 
 ---
 
