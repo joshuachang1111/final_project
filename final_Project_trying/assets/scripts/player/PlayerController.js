@@ -226,6 +226,9 @@ const PlayerController = cc.Class({
     // ── 技能 ──────────────────────────────────────────────
 
     _useSkill() {
+        // 單機模式下只讓 playerId=1 觸發，避免兩個 controller 同幀雙重發動
+        if (!window._nmRole && this.playerId !== 1) return;
+
         const skill = window._selectedSkill || 'skill_1';
         if (this._skillCooldowns[skill] > 0) {
             cc.log(`[Skill] ${skill} 冷卻中，剩餘 ${this._skillCooldowns[skill].toFixed(1)}s`);
