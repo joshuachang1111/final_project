@@ -85,7 +85,7 @@ const HUD = cc.Class({
     _onGameEnd(data) {
         this._setTimer(0);
         this._setScore(data.score);
-        this._clearAllOrders();
+        // 訂單清空由 OrderContainer 負責（通過 'game:end' 事件）
         cc.log('[HUD] 遊戲結束，最終分數:', data.score);
     },
 
