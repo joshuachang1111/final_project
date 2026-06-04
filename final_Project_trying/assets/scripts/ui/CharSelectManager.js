@@ -25,9 +25,9 @@ const SKILLS = [
     { id: 'skill_3', name: '草皮大尖叫', rarity: 4,
       desc: '所有人方向顛倒 + 速度×1.5\n持續 5 秒，冷卻 30 秒',
       icon: 'skill_scream_icon' },
-    { id: 'skill_4', name: '順手牽羊', rarity: 1,
-      desc: '拾取食材時\n有 20% 機率額外獲得一份',
-      icon: null },
+    { id: 'skill_4', name: '清交小徑', rarity: 1,
+      desc: '隨機傳送：你到隊友身邊\n或隊友到你身邊\n冷卻 20 秒',
+      icon: 'skill_road_icon' },
 ];
 
 // ── 版面常數 ───────────────────────────────────────────────

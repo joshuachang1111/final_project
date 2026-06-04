@@ -73,7 +73,7 @@ const PlayerController = cc.Class({
         this._netTimer   = 0;
 
         // 技能冷卻計時（秒）
-        this._skillCooldowns = { skill_1: 0, skill_2: 0, skill_3: 0 };
+        this._skillCooldowns = { skill_1: 0, skill_2: 0, skill_3: 0, skill_4: 0 };
 
         // 草皮大尖叫效果計時
         this._chaosTimer = 0;
@@ -242,6 +242,9 @@ const PlayerController = cc.Class({
             EventBus.emit('skill:chaos_start');
             EventBus.emit('skill:local', { skill: 'skill_3' });
             cc.log('[Skill] 草皮大尖叫：方向顛倒 5 秒');
+        } else if (skill === 'skill_4') {
+            this._skillCooldowns.skill_4 = 20;
+            this._useTeleport();
         }
     },
 
@@ -295,12 +298,54 @@ const PlayerController = cc.Class({
             EventBus.emit('order:refresh');
         } else if (data.skill === 'skill_3') {
             EventBus.emit('skill:chaos_start');
+        } else if (data.skill === 'skill_4') {
+            // mode=1：隊友傳到技能使用者身邊（data.x/y 是使用者的位置）
+            if (data.mode === 1) {
+                this._teleportTo(data.x + 30, data.y);
+                cc.log('[Skill] 清交小徑：我被傳送到隊友身邊');
+            }
+            // mode=0：使用者自己傳過來了，下一幀 EV_MOVE 會同步位置，不需額外處理
         }
     },
 
     _onChaosStart() {
         this._chaosTimer = 5;
         cc.log('[Skill] 草皮大尖叫效果啟動，playerId=', this.playerId);
+    },
+
+    _useTeleport() {
+        const mode = Math.floor(Math.random() * 2); // 0=我傳到隊友, 1=隊友傳到我
+        const teammate = this._getTeammate();
+
+        if (mode === 0 && teammate) {
+            // 我瞬間移動到隊友旁邊
+            this._teleportTo(teammate._px + 30, teammate._py);
+            cc.log('[Skill] 清交小徑：我傳到隊友身邊');
+        } else {
+            cc.log('[Skill] 清交小徑：隊友傳到我身邊');
+        }
+
+        // 廣播：帶上 mode 和我的座標（mode=1 時對方要傳過來）
+        EventBus.emit('skill:local', {
+            skill: 'skill_4',
+            mode,
+            x: this._px,
+            y: this._py,
+        });
+    },
+
+    _teleportTo(x, y) {
+        this._px = x;
+        this._py = y;
+        this.node.x = x;
+        this.node.y = y;
+    },
+
+    _getTeammate() {
+        if (!GameManager.instance) return null;
+        const localId = window._nmRole === 'host' ? 1 : 2;
+        const remoteId = localId === 1 ? 2 : 1;
+        return GameManager.instance.getPlayer(remoteId);
     },
 
     // ── 互動 ──────────────────────────────────────────────
