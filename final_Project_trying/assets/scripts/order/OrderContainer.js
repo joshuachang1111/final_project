@@ -63,20 +63,28 @@ cc.Class({
         // 2. 動態建立「食物圖片」
         const foodNode = new cc.Node('FoodIcon');
         const spriteComp = foodNode.addComponent(cc.Sprite);
-        
+
         const targetImageName = RECIPE_TO_IMAGE[data.recipe] || data.recipe;
+        cc.log('[OrderContainer] 尋找圖片:', targetImageName, 'recipe=', data.recipe);
 
         let frame = null;
         if (Array.isArray(this.foodSpriteFrames)) {
+            cc.log('[OrderContainer] foodSpriteFrames 數量=', this.foodSpriteFrames.length);
+            this.foodSpriteFrames.forEach((f, idx) => {
+                if (f) cc.log('[OrderContainer]   [' + idx + '] name=', f.name);
+            });
             frame = this.foodSpriteFrames.find(f => f && f.name === targetImageName);
+        } else {
+            cc.error('[OrderContainer] foodSpriteFrames 不是陣列！', this.foodSpriteFrames);
         }
 
         if (frame) {
+            cc.log('[OrderContainer] ✓ 找到圖片，名稱=', frame.name);
             spriteComp.spriteFrame = frame;
             foodNode.setContentSize(frame.getRect().width, frame.getRect().height);
         } else {
-            cc.warn(`[OrderUIHandler] 找不到圖片資源: ${targetImageName}`);
-            foodNode.setContentSize(120, 100); 
+            cc.warn(`[OrderContainer] ✗ 找不到圖片資源: ${targetImageName}`);
+            foodNode.setContentSize(120, 100);
         }
         
         // 調整食物稍微往下移，把上方的空間留給超大時間條
