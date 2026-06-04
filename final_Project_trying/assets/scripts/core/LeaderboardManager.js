@@ -101,11 +101,12 @@ const LeaderboardManager = {
                 snapshot.forEach((doc, index) => {
                     const data = doc.data();
                     cc.log('[LeaderboardManager] 文件', index, ':', data);
+                    cc.log('[LeaderboardManager] score 類型=', typeof data.score, '值=', data.score);
                     leaderboard.push({
                         rank: index + 1,
                         name: data.name || '訪客',
-                        score: data.score,
-                        level: data.level,
+                        score: data.score || 0,  // 分數無效時預設為 0
+                        level: data.level || 'unknown',
                     });
                 });
 

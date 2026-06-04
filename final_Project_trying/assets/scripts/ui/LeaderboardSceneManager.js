@@ -94,7 +94,9 @@ cc.Class({
                 itemNode.height = 40;
 
                 const label = itemNode.addComponent(cc.Label);
-                label.string = `${item.rank}. ${item.name} ── ${item.level} ── ${item.score}分`;
+                // 確保分數是有效的數字，否則顯示 0
+                const score = (typeof item.score === 'number' && item.score >= 0) ? item.score : 0;
+                label.string = `${item.rank}. ${item.name} ── ${item.level} ── ${score}分`;
                 label.fontSize = 16;
                 label.lineHeight = 40;
 
