@@ -224,17 +224,20 @@ const PlayerController = cc.Class({
         const spawnX = this._px + f.dc * SPAWN_DIST;
         const spawnY = this._py + (-f.dr) * SPAWN_DIST;
 
-        this._spawnBoarAt(spawnX, spawnY);
+        // 產生 seed，兩端用相同 seed 確保走法一致
+        const seed = Math.floor(Math.random() * 0xffffffff);
+        this._spawnBoarAt(spawnX, spawnY, seed);
 
-        // 廣播給對方
-        EventBus.emit('skill:local', { skill: 'skill_1', x: spawnX, y: spawnY });
+        // 廣播給對方（含 seed）
+        EventBus.emit('skill:local', { skill: 'skill_1', x: spawnX, y: spawnY, seed });
     },
 
-    _spawnBoarAt(x, y) {
+    _spawnBoarAt(x, y, seed) {
         if (!this.boarPrefab) return;
         const canvas = cc.find('Canvas');
         if (!canvas) return;
         const boar = cc.instantiate(this.boarPrefab);
+        if (seed !== undefined) boar._boarSeed = seed;
         boar.parent = canvas;
         boar.x = x;
         boar.y = y;
@@ -247,7 +250,7 @@ const PlayerController = cc.Class({
             if (this.playerId !== localId) return;
         }
         if (data.skill === 'skill_1') {
-            this._spawnBoarAt(data.x, data.y);
+            this._spawnBoarAt(data.x, data.y, data.seed);
         }
     },
 

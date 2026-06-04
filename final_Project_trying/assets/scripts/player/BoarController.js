@@ -11,6 +11,16 @@
 const GridSystem  = require('../core/GridSystem');
 const GameManager = require('../core/GameManager');
 
+// ── 種子亂數（LCG）─────────────────────────────────────────
+// 相同 seed 產生相同序列，確保兩端熊貓走法一致
+function makeRNG(seed) {
+    let s = (seed >>> 0) || 1;
+    return function() {
+        s = (Math.imul(1664525, s) + 1013904223) >>> 0;
+        return s / 4294967296;
+    };
+}
+
 const BOAR_SPEED     = 195;   // 玩家 150 * 1.3
 const BOAR_HALF_W    = 35;
 const BOAR_HALF_H    = 25;
@@ -34,6 +44,12 @@ const BoarController = cc.Class({
     extends: cc.Component,
 
     onLoad() {
+        // 使用 node._boarSeed（由 _spawnBoarAt 設定），沒有則隨機產生
+        const seed = this.node._boarSeed !== undefined
+            ? this.node._boarSeed
+            : Math.floor(Math.random() * 0xffffffff);
+        this._rng = makeRNG(seed);
+
         this._dirTimer    = 0;
         this._dirCooldown = this._nextCooldown();
         this._vx = 0;
@@ -127,7 +143,7 @@ const BoarController = cc.Class({
             { vx:  BOAR_SPEED * INV_SQRT2, vy: -BOAR_SPEED * INV_SQRT2, name: 'down_right' },
             { vx: -BOAR_SPEED * INV_SQRT2, vy: -BOAR_SPEED * INV_SQRT2, name: 'down_left'  },
         ];
-        const d = dirs[Math.floor(Math.random() * dirs.length)];
+        const d = dirs[Math.floor(this._rng() * dirs.length)];
         this._vx = d.vx;
         this._vy = d.vy;
         this._dirName = d.name;
@@ -146,7 +162,7 @@ const BoarController = cc.Class({
     },
 
     _nextCooldown() {
-        return DIR_CHANGE_MIN + Math.random() * (DIR_CHANGE_MAX - DIR_CHANGE_MIN);
+        return DIR_CHANGE_MIN + this._rng() * (DIR_CHANGE_MAX - DIR_CHANGE_MIN);
     },
 
     _loadSprite() {

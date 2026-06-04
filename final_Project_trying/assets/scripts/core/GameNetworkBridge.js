@@ -232,12 +232,12 @@ cc.Class({
 
     _handleLocalSkill(data) {
         if (!window._nm) return;
-        window._nm.sendGameEvent(EV_SKILL, { skill: data.skill, x: data.x, y: data.y });
+        window._nm.sendGameEvent(EV_SKILL, { skill: data.skill, x: data.x, y: data.y, seed: data.seed });
     },
 
     _applyRemoteSkill(data) {
-        // 透過 EventBus 通知 PlayerController 在相同位置召喚野豬
-        EventBus.emit('skill:remote', { skill: data.skill, x: data.x, y: data.y });
+        // 透過 EventBus 通知 PlayerController，含 seed 確保走法一致
+        EventBus.emit('skill:remote', { skill: data.skill, x: data.x, y: data.y, seed: data.seed });
     },
 
     _applyRemoteTickSync(data) {
