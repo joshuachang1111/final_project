@@ -52,6 +52,21 @@ cc.Class({
         this.scheduleOnce(() => this._setupNetworkCallbacks(), 0);
     },
 
+    onDestroy: function() {
+        // 离开 room.fire 场景时，移除所有事件订阅，避免干扰其他场景
+        const nm = window._nm;
+        if (nm) {
+            nm.off('room_created');
+            nm.off('guest_joined');
+            nm.off('guest_waiting');
+            nm.off('host_info');
+            nm.off('start_game');
+            nm.off('player_disconnected');
+            nm.off('error');
+            cc.log('[RoomManager] ✓ 已移除所有事件訂閱');
+        }
+    },
+
     _initPanels: function() {
         const isHost = window._nmRole === 'host';
 
