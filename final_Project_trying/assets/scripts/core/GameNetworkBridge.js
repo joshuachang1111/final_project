@@ -179,9 +179,10 @@ cc.Class({
         // Only sync successful serves to avoid syncing failed attempts
         if (!data.success || !window._nm) return;
         window._nm.sendGameEvent(EV_SERVE, {
-            col:    data.col,
-            row:    data.row,
-            item:   data.item,
+            col:     data.col,
+            row:     data.row,
+            item:    data.item,
+            orderId: typeof data.orderId === 'number' ? data.orderId : -1,
         });
     },
 
@@ -361,20 +362,32 @@ cc.Class({
         cc.log('Bridge: 收到遠端出餐', JSON.stringify(data));
 
         const OrderManager = require('../station/OrderManager');
-        // consumeOrder returns the reward (0 if not found)
-        const reward = OrderManager.instance
-            ? OrderManager.instance.consumeOrder(data.item)
-            : 0;
-
-        if (reward > 0 && GameManager.instance) {
-            GameManager.instance.addScore(reward);
+        // 優先用 orderId 精準移除；舊版送的事件可能沒帶 orderId，fallback 回 recipe 配對。
+        // 用 id 可以避免「兩邊各自配到不同的同名訂單」造成 UI 不一致。
+        let result;
+        if (OrderManager.instance) {
+            if (typeof data.orderId === 'number' && data.orderId >= 0) {
+                result = OrderManager.instance.consumeOrderById(data.orderId);
+                // 已被本地 update 過期掉了 → no-op，分數靠 EV_SCORE_SYNC 同步
+                if (!result.found) {
+                    cc.log('Bridge: orderId', data.orderId, '在本地已不存在（可能已過期），略過');
+                    return;
+                }
+            } else {
+                result = OrderManager.instance.consumeOrderByRecipe(data.item);
+            }
+        } else {
+            result = { id: -1, reward: 0 };
         }
 
-        // Emit order:completed so HUD removes the matching card
+        if (result.reward > 0 && GameManager.instance) {
+            GameManager.instance.addScore(result.reward);
+        }
+
         EventBus.emit('order:completed', {
-            id:     -1,
+            id:     result.id,
             recipe: data.item,
-            score:  reward,
+            score:  result.reward,
         });
     },
 

@@ -38,25 +38,26 @@ const ServingCounter = cc.Class({
             item:        item.name,
         });
 
-        const success = OrderManager.instance
+        // completeOrder 現在回傳被消掉的 order 物件（含 id），失敗回 null
+        const completed = OrderManager.instance
             ? OrderManager.instance.completeOrder(item.name)
-            : false;
+            : null;
 
-        if (success) {
-            cc.log('[ServingCounter] 出餐成功！');
+        if (completed) {
+            cc.log('[ServingCounter] 出餐成功！orderId=', completed.id);
             item.destroy();
         } else {
             cc.log('[ServingCounter] 沒有符合的訂單，退回食物');
             player.pickUp(item);
         }
 
-        // Bug 3 fix: dedicated serve event so Bridge can sync the result
-        // without replaying the full interaction (which would double-score)
+        // 帶上 orderId，讓對端用 id 精準移除（避免兩邊配對到不同的同名訂單）
         EventBus.emit('station:serve', {
             col:     this.gridCol,
             row:     this.gridRow,
             item:    item.name,
-            success: success,
+            orderId: completed ? completed.id : -1,
+            success: !!completed,
         });
     },
 
