@@ -73,10 +73,15 @@ const ResultSceneManager = cc.Class({
 
         if (this.leaderboardPanel) this.leaderboardPanel.active = false;
 
-        // 綁定按鈕
+        // Guest 不能重玩，只能看排行榜或回菜單
+        const isHost = window._nmRole !== 'guest';
         if (this.replayBtn) {
-            this.replayBtn.node.on('click', this._onReplay, this);
+            this.replayBtn.node.active = isHost;  // 只有 Host 能重玩
+            if (isHost) {
+                this.replayBtn.node.on('click', this._onReplay, this);
+            }
         }
+
         if (this.menuBtn) {
             this.menuBtn.node.on('click', this._onMenu, this);
         }
