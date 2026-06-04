@@ -145,6 +145,10 @@ cc.Class({
     },
 
     _handleLocalPickup(data) {
+        // 在 _applyRemoteStation 內部呼叫 station.onInteract 會觸發 _onPickup/_onPlace
+        // 而它們又會 emit 'station:pickup'/'station:place'，那會被我們自己接到再廣播
+        // 回去造成 echo 無限迴圈，避免把 remote 端 avatar 卡在 HOLDING 狀態。
+        if (this._applyingRemote) return;
         if (!window._nm) return;
         window._nm.sendGameEvent(EV_STATION, {
             action:      'pickup',
@@ -156,6 +160,7 @@ cc.Class({
     },
 
     _handleLocalPlace(data) {
+        if (this._applyingRemote) return;   // 同上，避免 echo
         if (!window._nm) return;
         // Bug 3 fix: ServingCounter interactions are synced via EV_SERVE (station:serve),
         // NOT through EV_STATION, to prevent double-scoring on the remote side.
@@ -170,6 +175,7 @@ cc.Class({
     },
 
     _handleLocalServe(data) {
+        if (this._applyingRemote) return;
         // Only sync successful serves to avoid syncing failed attempts
         if (!data.success || !window._nm) return;
         window._nm.sendGameEvent(EV_SERVE, {
@@ -283,44 +289,68 @@ cc.Class({
 
         const CarryState = require('../player/PlayerController').CarryState;
 
-        if (data.action === 'pickup') {
-            if (data.stationType === 'FOOD_BOX') {
-                // FoodBox: always generate a new item node
-                const itemNode = new cc.Node(data.item || 'noncooked_food');
-                itemNode.width  = 40;
-                itemNode.height = 40;
-                itemNode.addComponent(cc.Sprite).spriteFrame = null;
-                remote.pickUp(itemNode);
-            } else {
-                // Regular / CookingStation: take the held item from the station.
-                // Force-clear cooking state first so _onPickup's guard passes.
-                if (station._heldItem) {
-                    station._cooking = false;
-                    station._isDone  = false;
-                    remote.pickUp(station._heldItem);
-                    station._heldItem = null;
-                } else {
-                    // Item not on this side yet (race), create a proxy node
-                    const itemNode = new cc.Node(data.item || 'item');
-                    itemNode.width  = 40;
-                    itemNode.height = 40;
-                    itemNode.addComponent(cc.Sprite).spriteFrame = null;
+        // 標記正在套用遠端事件，避免下游 station.onInteract 觸發的 EventBus emit
+        // 被自己的 _handleLocalPickup / _handleLocalPlace 又廣播回去（echo loop）。
+        this._applyingRemote = true;
+        try {
+            if (data.action === 'pickup') {
+                if (data.stationType === 'FOOD_BOX') {
+                    // FoodBox: always generate a new item node.
+                    // station 本身就是 FoodBox component（StationBase.registerStation
+                    // 註冊的是 subclass instance），可以直接讀它的 foodSpriteFrame /
+                    // foodScale，讓對方手上的食材在我這邊也看得到。
+                    //
+                    // 順序要對齊 FoodBox._onPickup：先 setScale，addComponent 後先設
+                    // spriteFrame（讓 node 自動 resize 到 sprite 原始尺寸），最後鎖
+                    // sizeMode = CUSTOM。如果先鎖 CUSTOM 再 setSpriteFrame，node 維持
+                    // 在 100x100 不會 resize，乘上 foodScale (0.07) 之後變超小看不到。
+                    const itemNode = new cc.Node(data.item || 'noncooked_food');
+                    itemNode.width  = 100;
+                    itemNode.height = 100;
+                    if (typeof station.foodScale === 'number') {
+                        itemNode.setScale(station.foodScale);
+                    }
+                    const sprite = itemNode.addComponent(cc.Sprite);
+                    if (station.foodSpriteFrame) {
+                        sprite.spriteFrame = station.foodSpriteFrame;
+                    }
+                    sprite.sizeMode = cc.Sprite.SizeMode.CUSTOM;
                     remote.pickUp(itemNode);
+                } else {
+                    // Regular / CookingStation: take the held item from the station.
+                    // Force-clear cooking state first so _onPickup's guard passes.
+                    if (station._heldItem) {
+                        station._cooking = false;
+                        station._isDone  = false;
+                        remote.pickUp(station._heldItem);
+                        station._heldItem = null;
+                    } else {
+                        // Item not on this side yet (race), create a proxy node
+                        const itemNode = new cc.Node(data.item || 'item');
+                        itemNode.width  = 40;
+                        itemNode.height = 40;
+                        itemNode.addComponent(cc.Sprite);   // 至少有 component
+                        remote.pickUp(itemNode);
+                    }
                 }
-            }
 
-        } else if (data.action === 'place') {
-            if (!data.item) return;
-            // Create item node and force remote player into HOLDING state,
-            // then call onInteract so the station's _onPlace logic runs normally
-            // (this also starts the cooking timer for CookingStations).
-            const itemNode = new cc.Node(data.item);
-            itemNode.width  = 40;
-            itemNode.height = 40;
-            itemNode.addComponent(cc.Sprite).spriteFrame = null;
-            remote._heldItem   = itemNode;
-            remote._carryState = CarryState.HOLDING;
-            station.onInteract(remote);
+            } else if (data.action === 'place') {
+                if (!data.item) return;
+                // 如果 remote 已經因為之前的 pickup 事件拿著 item（含 sprite），就直接
+                // 走 station.onInteract 把它從玩家身上轉移到 station 上，這樣 sprite
+                // 不會掉。只有在 race（漏接 pickup）的情況才建立空白 proxy 當 fallback。
+                if (!remote.isCarrying()) {
+                    const proxy = new cc.Node(data.item);
+                    proxy.width  = 40;
+                    proxy.height = 40;
+                    proxy.addComponent(cc.Sprite);
+                    remote._heldItem   = proxy;
+                    remote._carryState = CarryState.HOLDING;
+                }
+                station.onInteract(remote);
+            }
+        } finally {
+            this._applyingRemote = false;
         }
     },
 
