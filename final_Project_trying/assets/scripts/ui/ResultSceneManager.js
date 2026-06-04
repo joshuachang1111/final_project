@@ -133,8 +133,16 @@ const ResultSceneManager = cc.Class({
 
         // Host 才上傳分數到排行榜
         const isHost = window._nmRole !== 'guest';
+        cc.log('[ResultSceneManager] 診斷:');
+        cc.log('  - window._nmRole=', window._nmRole);
+        cc.log('  - isHost=', isHost);
+        cc.log('  - window._fbUser=', !!window._fbUser);
+
         if (isHost && window._fbUser) {
+            cc.log('[ResultSceneManager] ✓ 條件滿足，呼叫 _submitScore');
             this._submitScore(data.score);
+        } else {
+            cc.log('[ResultSceneManager] ✗ 條件不滿足，不上傳分數');
         }
     },
 
