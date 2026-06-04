@@ -865,8 +865,8 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 131.33,
-      "height": 65.2
+      "width": 0,
+      "height": 45.2
     },
     "_anchorPoint": {
       "__type__": "cc.Vec2",
@@ -917,8 +917,8 @@
     ],
     "_srcBlendFactor": 770,
     "_dstBlendFactor": 771,
-    "_string": "ScrollView content\n\n",
-    "_N$string": "ScrollView content\n\n",
+    "_string": "\n",
+    "_N$string": "\n",
     "_fontSize": 16,
     "_lineHeight": 20,
     "_enableWrapText": true,
@@ -1013,7 +1013,7 @@
     "_srcBlendFactor": 770,
     "_dstBlendFactor": 771,
     "_spriteFrame": {
-      "__uuid__": "5bbe0972-6b9f-488e-a9cb-61bbcd057cff"
+      "__uuid__": "575dfbce-2411-43b6-8f22-00fc42708ea1"
     },
     "_type": 0,
     "_sizeMode": 0,

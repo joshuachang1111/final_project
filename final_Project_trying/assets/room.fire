@@ -415,7 +415,9 @@
     "hostNameLabel": {
       "__id__": 15
     },
-    "guestNameLabel": null,
+    "guestNameLabel": {
+      "__id__": 17
+    },
     "waitingLabel": {
       "__id__": 13
     },
