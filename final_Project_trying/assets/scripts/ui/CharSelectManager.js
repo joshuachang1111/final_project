@@ -24,7 +24,7 @@ const SKILLS = [
       icon: 'skill_drop_icon' },
     { id: 'skill_3', name: '草皮大尖叫', rarity: 4,
       desc: '所有人方向顛倒 + 速度×1.5\n持續 5 秒，冷卻 30 秒',
-      icon: null },
+      icon: 'skill_scream_icon' },
     { id: 'skill_4', name: '順手牽羊', rarity: 1,
       desc: '拾取食材時\n有 20% 機率額外獲得一份',
       icon: null },
