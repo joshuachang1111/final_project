@@ -78,7 +78,12 @@ cc.Class({
         cc.log('[LevelSelectManager] Guest 收到 start_game, level=', msg.level);
         cc.sys.localStorage.setItem('selectedLevel', msg.level || 'susui');
         cc.sys.localStorage.setItem('playerRole', window._nmRole || 'guest');
-        cc.director.loadScene('game');
+
+        // 延遲 0.5 秒進遊戲，與 Host 同步時間
+        this.scheduleOnce(() => {
+            cc.log('[LevelSelectManager] Guest 進遊戲');
+            cc.director.loadScene('game');
+        }, 0.5);
     },
 
     onBackBtn() {
