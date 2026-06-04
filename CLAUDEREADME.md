@@ -27,7 +27,8 @@
 | **Push 方式** | 在 worktree 做 commit，再 `git push origin claude/strange-cartwright-b32b4c:main` |
 | **User pull 方式** | `cd /Users/tungchang/Desktop/大二作業/軟體設計實驗/final_project_trying && git pull origin main` |
 
-> ⚠️ worktree 和 User 的 Cocos Creator 是不同目錄。編輯後一定要 push + user pull 才能在編輯器看到。
+> ⚠️ 新工作流（本次起）：Claude 直接編輯 User 本機的 `final_Project_trying/` 目錄，User 測試確認後再 push。
+> 不再需要 worktree → push → user pull 的流程。
 
 ---
 
@@ -84,9 +85,14 @@ toGrid(worldX, worldY) → 先用 ROW_Y 定 row，再用 cellW 定 col
 | `1` | Guest→Host | `{ action:'guest_joined', name }` | Guest 入房告知名字 |
 | `2` | Host→Guest | `{ action:'host_start', level }` | Host 按下開始（含關卡 ID） |
 | `3` | Host→Guest | `{ action:'host_info', name }` | Host 回傳自己名字 |
-| `10` | 雙向 | `{ x, y, facing }` | 玩家移動（世界座標） |
+| `10` | 雙向 | `{ x, y, facing, char }` | 玩家移動（世界座標） |
 | `11` | 雙向 | `{ action, stationType, col, row, item }` | 站台互動（action='pickup'或'place'） |
 | `12` | 雙向 | `{ col, row, item }` | 出餐成功（ServingCounter 專用，避免雙重計分） |
+| `13` | 雙向 | `{ char }` | 角色選擇同步 |
+| `14` | 雙向 | `{ skill, x, y, seed }` | 技能發動同步（含種子亂數，確保兩端走法一致）|
+| `20` | Host→Guest | `{ timeLeft }` | 計時器同步 |
+| `21` | 雙向 | `{ score }` | 分數同步 |
+| `100` | 雙向 | `{ action:'player_ready', role }` | 雙方進場確認，才開始計時 |
 
 ---
 
@@ -186,13 +192,22 @@ InputHandler → PlayerController → AnimationController
 - **player_ready 同步**（朋友實作）：EV code 100
   - 雙方進遊戲後各發送 player_ready，確認兩端都進場再開始計時，避免場景衝突
 - **menu.fire 加回選角色按鈕**（BtnCharSelect → onCharSelect）
+- **技能一：十八尖山野豬**（E 鍵）
+  - `BoarController.js`：野豬 AI，速度 195 px/s（1.3x），隨機換向，10 秒消失
+  - 碰到玩家 AABB 重疊時推開玩家（PUSH_IMPULSE=300）
+  - Sprite：`resources/boar_sheet.png`（256×2048，8 方向，Blender 渲染）
+  - Prefab：`player_prefab/Boar.prefab`（Sprite 子節點可獨立調整偏移對齊 hitbox）
+  - 技能圖示：`resources/skill_boar_icon.png`，顯示在 CharSelectManager 技能卡
+  - **網路同步**：EV_SKILL(14) 帶 `{ skill, x, y, seed }`
+    - `seed` 為 LCG 種子亂數，兩端用相同 seed 確保走法完全一致，零額外封包
+  - `GameManager.getAllPlayers()` 供 BoarController 查詢所有玩家
+  - `PlayerController.boarPrefab`（@property）：game.fire 兩個玩家都已設定
 
 ### 🚧 尚缺
-- 食材 Sprite 圖片（目前是空 Sprite 佔位）
 - 多張地圖（目前四個關卡都是同一個背景）
 - 斷線處理（遊戲中）
 - `window._selectedLevel` 在 GameManager 中尚未使用（關卡差異化待實作）
-- 技能系統後端邏輯（charselect 介面已完成，技能效果尚未接入遊戲）
+- 技能 2/3/4 後端邏輯（charselect 介面已完成，只有技能一實作）
 - 排行榜 UI 節點綁定尚需在 Cocos Creator 編輯器完成
 
 ### Sprite Sheet 製作流程（備忘）
@@ -264,6 +279,9 @@ cp ~/Desktop/charselect_bg.png .../assets/resources/charselect_bg.png
 | 11 | 第2批 | ServingCounter 同步雙重計分 | `GameNetworkBridge.js` / `ServingCounter.js` |
 | 12 | 第2批 | Trash.js inline require | `Trash.js` |
 | 13 | 第2批 | HUD 訂單 tick 字串分割脆弱 | `HUD.js` |
+| 14 | 技能批 | Guest 按 E 無反應（game.fire Player2 boarPrefab=null）| `game.fire` |
+| 15 | 技能批 | 技能只有本地看得到（未同步）| `GameNetworkBridge.js` / `PlayerController.js` |
+| 16 | 技能批 | 兩端熊貓走法不同步 | `BoarController.js`（LCG 種子亂數）|
 
 ---
 
