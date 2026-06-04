@@ -70,12 +70,15 @@ const GameManager = cc.Class({
 
     /** 開始一局遊戲 */
     startGame() {
+        cc.log('[GameManager] startGame called');
         this._score    = 0;
         this._timeLeft = this.totalTime;
         this._phase    = Phase.PLAYING;
 
+        cc.log('[GameManager] ✓ 初始化完成，timeLeft=', this._timeLeft, 'phase=', this._phase);
         EventBus.emit('game:start', { timeLeft: this._timeLeft });
         this.schedule(this._tick, 1);
+        cc.log('[GameManager] ✓ 計時器已啟動');
     },
 
     /** 加分，並廣播最新分數 */
@@ -126,7 +129,13 @@ const GameManager = cc.Class({
         this._timeLeft -= 1;
         EventBus.emit('game:tick', { timeLeft: this._timeLeft });
 
+        // 每 10 秒輸出一次日誌
+        if (this._timeLeft % 10 === 0) {
+            cc.log('[GameManager] _tick: timeLeft=', this._timeLeft);
+        }
+
         if (this._timeLeft <= 0) {
+            cc.log('[GameManager] ✓ 時間到，呼叫 _endGame');
             this._endGame();
         }
     },
