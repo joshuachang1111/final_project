@@ -192,22 +192,48 @@ InputHandler → PlayerController → AnimationController
 - **player_ready 同步**（朋友實作）：EV code 100
   - 雙方進遊戲後各發送 player_ready，確認兩端都進場再開始計時，避免場景衝突
 - **menu.fire 加回選角色按鈕**（BtnCharSelect → onCharSelect）
-- **技能一：十八尖山野豬**（E 鍵）
-  - `BoarController.js`：野豬 AI，速度 195 px/s（1.3x），隨機換向，10 秒消失
+- **技能一：清大熊貓**（skill_1，E 鍵）
+  - `BoarController.js`：熊貓 AI，速度 195 px/s（1.3x），隨機換向，10 秒消失
   - 碰到玩家 AABB 重疊時推開玩家（PUSH_IMPULSE=300）
   - Sprite：`resources/boar_sheet.png`（256×2048，8 方向，Blender 渲染）
   - Prefab：`player_prefab/Boar.prefab`（Sprite 子節點可獨立調整偏移對齊 hitbox）
-  - 技能圖示：`resources/skill_boar_icon.png`，顯示在 CharSelectManager 技能卡
+  - 技能圖示：`resources/skill_boar_icon.png`
   - **網路同步**：EV_SKILL(14) 帶 `{ skill, x, y, seed }`
     - `seed` 為 LCG 種子亂數，兩端用相同 seed 確保走法完全一致，零額外封包
   - `GameManager.getAllPlayers()` 供 BoarController 查詢所有玩家
   - `PlayerController.boarPrefab`（@property）：game.fire 兩個玩家都已設定
+- **技能二：二退**（skill_2，E 鍵，冷卻 20 秒）
+  - 移除畫面上最舊的訂單（`_orders[0]`，不扣分）並立刻生成一張新訂單
+  - 技能圖示：`resources/skill_drop_icon.png`
+  - **架構**：Host 權威，只有 Host 的 `OrderManager._onRefreshOrder()` 真正執行
+    - 觸發方：`PlayerController` emit `order:refresh`（EventBus）
+    - Host 收到後：移除 + emit `order:expired` + EV_ORDER 廣播 + `_spawnOrder()`
+    - Guest 收到 EV_SKILL(14) 後同樣 emit `order:refresh`，但 Host 才執行
+  - `PlayerController._skillCooldowns`：字典管理各技能冷卻，update 每幀遞減
+
+### 技能系統架構
+```
+E 鍵
+  → PlayerController._useSkill()
+      → 檢查 _skillCooldowns[skill]
+      → skill_1：_spawnBoar()（熊貓）
+      → skill_2：_useRefreshOrder()（二退）
+          → EventBus.emit('order:refresh')  ← OrderManager 監聽
+          → EventBus.emit('skill:local')    ← Bridge 廣播 EV_SKILL(14)
+
+遠端收到 EV_SKILL(14)
+  → GameNetworkBridge._applyRemoteSkill()
+  → EventBus.emit('skill:remote')
+  → PlayerController._onRemoteSkill()
+      → skill_1：_spawnBoarAt(x, y, seed)
+      → skill_2：EventBus.emit('order:refresh')
+```
 
 ### 🚧 尚缺
 - 多張地圖（目前四個關卡都是同一個背景）
 - 斷線處理（遊戲中）
 - `window._selectedLevel` 在 GameManager 中尚未使用（關卡差異化待實作）
-- 技能 2/3/4 後端邏輯（charselect 介面已完成，只有技能一實作）
+- 技能 3/4 後端邏輯（charselect 介面已完成，skill_1/2 已實作）
 - 排行榜 UI 節點綁定尚需在 Cocos Creator 編輯器完成
 
 ### Sprite Sheet 製作流程（備忘）
@@ -282,6 +308,8 @@ cp ~/Desktop/charselect_bg.png .../assets/resources/charselect_bg.png
 | 14 | 技能批 | Guest 按 E 無反應（game.fire Player2 boarPrefab=null）| `game.fire` |
 | 15 | 技能批 | 技能只有本地看得到（未同步）| `GameNetworkBridge.js` / `PlayerController.js` |
 | 16 | 技能批 | 兩端熊貓走法不同步 | `BoarController.js`（LCG 種子亂數）|
+| 17 | 選角色批 | 選取框不顯示（Sprite 無 spriteFrame 不渲染）| `CharSelectManager.js`（改 cc.Graphics）|
+| 18 | 選角色批 | 技能圖示顏色暗沉（node.color tint）| `CharSelectManager.js`（載入後設白色）|
 
 ---
 
