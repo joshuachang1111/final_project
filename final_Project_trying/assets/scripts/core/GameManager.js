@@ -74,7 +74,7 @@ const GameManager = cc.Class({
         this._timeLeft = this.totalTime;
         this._phase    = Phase.PLAYING;
 
-        // 若玩家未選技能，預設給野豬技能
+        // 若玩家未選技能，預設給熊貓技能
         if (!window._selectedSkill) window._selectedSkill = 'skill_1';
 
         EventBus.emit('game:start', { timeLeft: this._timeLeft });

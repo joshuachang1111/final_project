@@ -16,8 +16,8 @@ const CHARACTERS = [
 
 // ── 技能清單 ───────────────────────────────────────────────
 const SKILLS = [
-    { id: 'skill_1', name: '十八尖山野豬', rarity: 3,
-      desc: '召喚一隻野豬在場地亂竄\n碰到玩家會將其推開\n持續 10 秒',
+    { id: 'skill_1', name: '清大熊貓', rarity: 3,
+      desc: '召喚一隻熊貓在場地亂竄\n碰到玩家會將其推開\n持續 10 秒',
       icon: 'skill_boar_icon' },
     { id: 'skill_2', name: '鐵壁護盾', rarity: 2,
       desc: '每完成一道料理\n獲得 1 層護盾（最多 3 層）',
@@ -217,15 +217,15 @@ const CharSelectManager = cc.Class({
             this._loadPortrait(idx);
         }, this);
 
-        // 選中框（先隱藏）
-        const border = _mkRect(THUMB_SIZE + 6, THUMB_SIZE + 6, cc.color(0,0,0,0));
-        const borderSp = border.getComponent(cc.Sprite);
-        if (borderSp) {
-            borderSp.type = cc.Sprite.Type.SLICED;
-        }
-        border.color = COL_SEL;
-        border.opacity = 0;
-        border.name = 'border';
+        // 選中框（cc.Graphics 畫線，預設隱藏）
+        const border = new cc.Node('border');
+        border.setPosition(0, 0);
+        border.active = false;
+        const bg = border.addComponent(cc.Graphics);
+        bg.strokeColor = COL_SEL;
+        bg.lineWidth = 4;
+        bg.rect(-(THUMB_SIZE / 2 + 3), -(THUMB_SIZE / 2 + 3), THUMB_SIZE + 6, THUMB_SIZE + 6);
+        bg.stroke();
         cell.addChild(border);
 
         // 載入縮圖 portrait
@@ -316,13 +316,16 @@ const CharSelectManager = cc.Class({
         desc.setPosition(0, h / 2 - 185);
         card.addChild(desc);
 
-        // 選中框
-        const border = _mkRect(w + 4, h + 4, COL_CARD_SEL);
-        border.opacity = 0;
-        border.name = 'border';
+        // 選中框（cc.Graphics 畫線，預設隱藏）
+        const border = new cc.Node('border');
+        border.setPosition(0, 0);
+        border.active = false;
+        const bg2 = border.addComponent(cc.Graphics);
+        bg2.strokeColor = COL_SEL;
+        bg2.lineWidth = 5;
+        bg2.rect(-(w / 2 + 4), -(h / 2 + 4), w + 8, h + 8);
+        bg2.stroke();
         card.addChild(border);
-        // 讓 border 在背後
-        card.children[0].zIndex = 1;
 
         card.addComponent(cc.Button);
         card.on(cc.Node.EventType.TOUCH_END, () => {
@@ -370,14 +373,14 @@ const CharSelectManager = cc.Class({
     _refreshThumbHighlight() {
         this._charThumbNodes.forEach((cell, i) => {
             const border = cell.getChildByName('border');
-            if (border) border.opacity = (i === this._selCharIdx) ? 255 : 0;
+            if (border) border.active = (i === this._selCharIdx);
         });
     },
 
     _refreshSkillHighlight() {
         this._skillCardNodes.forEach((card, i) => {
             const border = card.getChildByName('border');
-            if (border) border.opacity = (i === this._selSkillIdx) ? 255 : 0;
+            if (border) border.active = (i === this._selSkillIdx);
         });
     },
 
