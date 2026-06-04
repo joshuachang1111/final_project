@@ -82,6 +82,13 @@ const PlayerController = cc.Class({
         if (GameManager.instance) {
             GameManager.instance.registerPlayer(this.playerId, this);
         }
+
+        // 監聽遠端技能事件（只有本地玩家的 Controller 才執行）
+        EventBus.on('skill:remote', this._onRemoteSkill, this);
+    },
+
+    onDestroy() {
+        EventBus.off('skill:remote', this._onRemoteSkill, this);
     },
 
     update(dt) {
@@ -208,7 +215,7 @@ const PlayerController = cc.Class({
 
     _spawnBoar() {
         if (!this.boarPrefab) {
-            cc.warn('[Skill] boarPrefab 未設定，請在 Inspector 將 Boar.prefab 拖入 PlayerController 的 Boar Prefab 欄位');
+            cc.warn('[Skill] boarPrefab 未設定');
             return;
         }
 
@@ -217,14 +224,31 @@ const PlayerController = cc.Class({
         const spawnX = this._px + f.dc * SPAWN_DIST;
         const spawnY = this._py + (-f.dr) * SPAWN_DIST;
 
-        // 掛在 Canvas 下，座標系和玩家一致
+        this._spawnBoarAt(spawnX, spawnY);
+
+        // 廣播給對方
+        EventBus.emit('skill:local', { skill: 'skill_1', x: spawnX, y: spawnY });
+    },
+
+    _spawnBoarAt(x, y) {
+        if (!this.boarPrefab) return;
         const canvas = cc.find('Canvas');
-        if (!canvas) { cc.warn('[Skill] 找不到 Canvas 節點'); return; }
+        if (!canvas) return;
         const boar = cc.instantiate(this.boarPrefab);
         boar.parent = canvas;
-        boar.x = spawnX;
-        boar.y = spawnY;
-        cc.log(`[Skill] 玩家位置 (${this._px.toFixed(0)}, ${this._py.toFixed(0)})  朝向=${f.name}  野豬出生 (${spawnX.toFixed(0)}, ${spawnY.toFixed(0)})`);
+        boar.x = x;
+        boar.y = y;
+    },
+
+    _onRemoteSkill(data) {
+        // 只有本地玩家的 Controller 才執行，避免雙重召喚
+        if (window._nmRole) {
+            const localId = window._nmRole === 'host' ? 1 : 2;
+            if (this.playerId !== localId) return;
+        }
+        if (data.skill === 'skill_1') {
+            this._spawnBoarAt(data.x, data.y);
+        }
     },
 
     // ── 互動 ──────────────────────────────────────────────

@@ -6,6 +6,7 @@ const EV_MOVE       = 10;   // 玩家移動
 const EV_STATION    = 11;   // 站台互動（pickup / place）
 const EV_SERVE      = 12;   // 出餐成功（用於同步分數與訂單移除，避免雙重計分）
 const EV_CHAR       = 13;   // 角色選擇同步（遊戲開始時各自廣播）
+const EV_SKILL      = 14;   // 技能發動同步（x, y, skill）
 const EV_TICK_SYNC  = 20;   // 計時器同步（Host 廣播，保持兩人計時同步）
 const EV_SCORE_SYNC = 21;   // 分數同步（任一方分數改變時廣播）
 
@@ -25,6 +26,7 @@ cc.Class({
         this._onLocalPlace   = this._handleLocalPlace.bind(this);
         this._onLocalServe   = this._handleLocalServe.bind(this);
         this._onLocalScore   = this._handleLocalScore.bind(this);
+        this._onLocalSkill   = this._handleLocalSkill.bind(this);
         this._onGameEvent    = (msg) => this._applyGameEvent.call(this, msg);
 
         EventBus.on('player:moved',    this._onLocalMove,   this);
@@ -32,6 +34,7 @@ cc.Class({
         EventBus.on('station:place',   this._onLocalPlace,  this);
         EventBus.on('station:serve',   this._onLocalServe,  this);
         EventBus.on('game:score',      this._onLocalScore,  this);
+        EventBus.on('skill:local',     this._onLocalSkill,  this);
 
         if (window._nm) {
             window._nm.on('game_event', this._onGameEvent);
@@ -222,6 +225,19 @@ cc.Class({
         if      (code === EV_MOVE)    this._applyRemoteMove(data);
         else if (code === EV_STATION) this._applyRemoteStation(data);
         else if (code === EV_SERVE)   this._applyRemoteServe(data);
+        else if (code === EV_SKILL)   this._applyRemoteSkill(data);
+    },
+
+    // ── 技能同步 ──────────────────────────────────────────
+
+    _handleLocalSkill(data) {
+        if (!window._nm) return;
+        window._nm.sendGameEvent(EV_SKILL, { skill: data.skill, x: data.x, y: data.y });
+    },
+
+    _applyRemoteSkill(data) {
+        // 透過 EventBus 通知 PlayerController 在相同位置召喚野豬
+        EventBus.emit('skill:remote', { skill: data.skill, x: data.x, y: data.y });
     },
 
     _applyRemoteTickSync(data) {

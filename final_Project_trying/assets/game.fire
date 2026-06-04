@@ -2050,7 +2050,9 @@
     "playerId": 2,
     "startCol": 4,
     "startRow": 4,
-    "boarPrefab": null,
+    "boarPrefab": {
+      "__uuid__": "09221494-9340-465b-b246-250564481dcd"
+    },
     "_id": "2cbadoWf5DvILLqk5qqKtx"
   },
   {
