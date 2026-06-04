@@ -221,14 +221,9 @@ cc.Class({
         if (this._role === 'host') return;  // Host 不需要接收自己的廣播
 
         if (!GameManager.instance) return;
-        const currentTime = GameManager.instance.timeLeft;
-
-        // 如果時間差超過 1 秒，則同步
-        if (Math.abs(currentTime - data.timeLeft) > 1) {
-            cc.log('[GameNetworkBridge] Guest 計時器同步：', currentTime, ' → ', data.timeLeft);
-            GameManager.instance._timeLeft = data.timeLeft;
-            EventBus.emit('game:tick', { timeLeft: data.timeLeft });
-        }
+        // 每次都強制同步，確保兩人計時器完全一致
+        GameManager.instance._timeLeft = data.timeLeft;
+        EventBus.emit('game:tick', { timeLeft: data.timeLeft });
     },
 
     _applyRemoteScoreSync(data) {
@@ -236,14 +231,9 @@ cc.Class({
         if (this._role === 'host') return;  // Host 不需要接收自己的廣播
 
         if (!GameManager.instance) return;
-        const currentScore = GameManager.instance.score;
-
-        // 如果分數不同，則同步
-        if (currentScore !== data.score) {
-            cc.log('[GameNetworkBridge] Guest 分數同步：', currentScore, ' → ', data.score);
-            GameManager.instance._score = data.score;
-            EventBus.emit('game:score', { score: data.score });
-        }
+        // 強制同步分數
+        GameManager.instance._score = data.score;
+        EventBus.emit('game:score', { score: data.score });
     },
 
     _applyRemoteMove(data) {
