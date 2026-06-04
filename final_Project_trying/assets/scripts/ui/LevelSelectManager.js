@@ -62,8 +62,20 @@ cc.Class({
         }
 
         if (sceneName) {
-            cc.log('【LevelSelectManager】Host 馬上進遊戲');
-            cc.director.loadScene(sceneName);
+            cc.log('【LevelSelectManager】Host 進遊戲');
+            const self = this;
+            this.scheduleOnce(() => {
+                try {
+                    cc.director.loadScene(sceneName);
+                    cc.log('【LevelSelectManager】✓ loadScene 成功');
+                } catch (err) {
+                    cc.error('【LevelSelectManager】loadScene 失敗，重試：', err);
+                    // 失敗時等 0.5 秒重試
+                    self.scheduleOnce(() => {
+                        cc.director.loadScene(sceneName);
+                    }, 0.5);
+                }
+            }, 0.5);
         }
     },
 
