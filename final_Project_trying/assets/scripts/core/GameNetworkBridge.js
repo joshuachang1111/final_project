@@ -102,7 +102,8 @@ cc.Class({
             this._timerSyncSchedule = setInterval(() => {
                 if (!GameManager.instance) return;
                 const timeLeft = GameManager.instance.timeLeft;
-                if (window._nm) {
+                cc.log('[GameNetworkBridge] Host 廣播計時器:', timeLeft);
+                if (window._nm && typeof timeLeft === 'number') {
                     window._nm.sendGameEvent(EV_TICK_SYNC, {
                         timeLeft: timeLeft,
                     });
@@ -218,10 +219,21 @@ cc.Class({
 
     _applyRemoteTickSync(data) {
         // Guest 接收 Host 廣播的計時器，強制同步本地計時器
-        if (this._role === 'host') return;  // Host 不需要接收自己的廣播
+        cc.log('[GameNetworkBridge] 收到計時器同步，role=', this._role, 'data=', data);
+
+        if (this._role === 'host') {
+            cc.log('[GameNetworkBridge] Host 忽略自己的計時器廣播');
+            return;  // Host 不需要接收自己的廣播
+        }
 
         if (!GameManager.instance) return;
+        if (typeof data.timeLeft !== 'number') {
+            cc.error('[GameNetworkBridge] 計時器數據無效:', data.timeLeft);
+            return;
+        }
+
         // 每次都強制同步，確保兩人計時器完全一致
+        cc.log('[GameNetworkBridge] Guest 計時器同步:', data.timeLeft);
         GameManager.instance._timeLeft = data.timeLeft;
         EventBus.emit('game:tick', { timeLeft: data.timeLeft });
     },
