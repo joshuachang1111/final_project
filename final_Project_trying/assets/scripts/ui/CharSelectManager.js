@@ -14,16 +14,20 @@ const CHARACTERS = [
     'character-e', 'character-f', 'character-h', 'character-i',
 ];
 
-// ── 技能清單（佔位）───────────────────────────────────────
+// ── 技能清單 ───────────────────────────────────────────────
 const SKILLS = [
-    { id: 'skill_1', name: '疾風之刃', rarity: 3,
-      desc: '移動速度提升 25%\n持續 8 秒，冷卻 15 秒' },
+    { id: 'skill_1', name: '十八尖山野豬', rarity: 3,
+      desc: '召喚一隻野豬在場地亂竄\n碰到玩家會將其推開\n持續 10 秒',
+      icon: 'skill_boar_icon' },
     { id: 'skill_2', name: '鐵壁護盾', rarity: 2,
-      desc: '每完成一道料理\n獲得 1 層護盾（最多 3 層）' },
+      desc: '每完成一道料理\n獲得 1 層護盾（最多 3 層）',
+      icon: null },
     { id: 'skill_3', name: '暴擊烹飪', rarity: 4,
-      desc: '10% 機率烹飪時間減半\n暴擊時額外加 50 分' },
+      desc: '10% 機率烹飪時間減半\n暴擊時額外加 50 分',
+      icon: null },
     { id: 'skill_4', name: '順手牽羊', rarity: 1,
-      desc: '拾取食材時\n有 20% 機率額外獲得一份' },
+      desc: '拾取食材時\n有 20% 機率額外獲得一份',
+      icon: null },
 ];
 
 // ── 版面常數 ───────────────────────────────────────────────
@@ -271,14 +275,25 @@ const CharSelectManager = cc.Class({
 
         const skill = SKILLS[idx];
 
-        // 圖示圓形佔位
+        // 圖示區
         const iconBg = _mkRect(70, 70, cc.color(60, 70, 120, 255));
         iconBg.setPosition(0, h / 2 - 50);
-        // 加一個問號代表未實作
-        const iconQ = _mkLabel('?', 32, COL_GREY);
-        iconQ.setPosition(0, 0);
-        iconBg.addChild(iconQ);
         card.addChild(iconBg);
+
+        if (skill.icon) {
+            const iconSp = iconBg.addComponent(cc.Sprite);
+            iconSp.sizeMode = cc.Sprite.SizeMode.CUSTOM;
+            iconBg.setContentSize(70, 70);
+            cc.resources.load(skill.icon, cc.Texture2D, (err, tex) => {
+                if (!err && tex && cc.isValid(iconBg)) {
+                    iconSp.spriteFrame = new cc.SpriteFrame(tex);
+                }
+            });
+        } else {
+            const iconQ = _mkLabel('?', 32, COL_GREY);
+            iconQ.setPosition(0, 0);
+            iconBg.addChild(iconQ);
+        }
 
         // 技能名
         const nameLabel = _mkLabel(skill.name, 22, COL_WHITE);

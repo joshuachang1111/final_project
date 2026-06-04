@@ -14,10 +14,11 @@
  *  遠端呼叫 applyNetworkState(x, y, facingName)
  */
 
-const GridSystem   = require('../core/GridSystem');
-const EventBus     = require('../core/EventBus');
-const GameManager  = require('../core/GameManager');
-const InputHandler = require('../input/InputHandler');
+const GridSystem      = require('../core/GridSystem');
+const EventBus        = require('../core/EventBus');
+const GameManager     = require('../core/GameManager');
+const InputHandler    = require('../input/InputHandler');
+const BoarController  = require('./BoarController');
 
 const SPEED             = 150;
 const PLAYER_HALF_W     = 20;
@@ -53,6 +54,10 @@ const PlayerController = cc.Class({
         },
         startCol: { default: 5, type: cc.Integer },
         startRow: { default: 4, type: cc.Integer },
+        boarPrefab: {
+            default: null,
+            type: cc.Prefab,
+        },
     },
 
     onLoad() {
@@ -128,6 +133,11 @@ const PlayerController = cc.Class({
             this._tryInteract();
         }
 
+        if (input.isJustPressed(id, A.SKILL)) {
+            cc.log('[Skill] E 鍵偵測到，呼叫 _useSkill');
+            this._useSkill();
+        }
+
         // 網路同步
         this._netTimer += dt;
         if (this._netTimer >= NET_SEND_INTERVAL) {
@@ -185,6 +195,36 @@ const PlayerController = cc.Class({
             ny = (this._py <= b.cy) ? b.bottom - PLAYER_HALF_H : b.top + PLAYER_HALF_H;
         }
         return ny;
+    },
+
+    // ── 技能 ──────────────────────────────────────────────
+
+    _useSkill() {
+        const skill = window._selectedSkill || 'skill_1';
+        if (skill === 'skill_1') {
+            this._spawnBoar();
+        }
+    },
+
+    _spawnBoar() {
+        if (!this.boarPrefab) {
+            cc.warn('[Skill] boarPrefab 未設定，請在 Inspector 將 Boar.prefab 拖入 PlayerController 的 Boar Prefab 欄位');
+            return;
+        }
+
+        const SPAWN_DIST = 50;
+        const f = this._facing;
+        const spawnX = this._px + f.dc * SPAWN_DIST;
+        const spawnY = this._py + (-f.dr) * SPAWN_DIST;
+
+        // 掛在 Canvas 下，座標系和玩家一致
+        const canvas = cc.find('Canvas');
+        if (!canvas) { cc.warn('[Skill] 找不到 Canvas 節點'); return; }
+        const boar = cc.instantiate(this.boarPrefab);
+        boar.parent = canvas;
+        boar.x = spawnX;
+        boar.y = spawnY;
+        cc.log(`[Skill] 玩家位置 (${this._px.toFixed(0)}, ${this._py.toFixed(0)})  朝向=${f.name}  野豬出生 (${spawnX.toFixed(0)}, ${spawnY.toFixed(0)})`);
     },
 
     // ── 互動 ──────────────────────────────────────────────

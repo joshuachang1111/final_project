@@ -74,6 +74,9 @@ const GameManager = cc.Class({
         this._timeLeft = this.totalTime;
         this._phase    = Phase.PLAYING;
 
+        // 若玩家未選技能，預設給野豬技能
+        if (!window._selectedSkill) window._selectedSkill = 'skill_1';
+
         EventBus.emit('game:start', { timeLeft: this._timeLeft });
         this.schedule(this._tick, 1);
     },
@@ -106,6 +109,11 @@ const GameManager = cc.Class({
     /** 取得玩家 component */
     getPlayer(playerId) {
         return this._players[playerId] || null;
+    },
+
+    /** 取得所有已註冊的玩家 component 陣列 */
+    getAllPlayers() {
+        return Object.values(this._players).filter(p => p && cc.isValid(p.node));
     },
 
     // ─────────────────────────────────────────────
