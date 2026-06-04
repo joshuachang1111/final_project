@@ -50,18 +50,11 @@ const HUD = cc.Class({
     // ─────────────────────────────────────────────
 
     onLoad() {
-        // Bug 6 fix: store { node, recipe } instead of bare cc.Node
-        // so _onOrderTick can reconstruct the label without fragile string splitting
-        this._orderNodes = {};   // id → { node: cc.Node, recipe: string }
-
         EventBus.on('game:start',      this._onGameStart,      this);
         EventBus.on('game:tick',       this._onGameTick,       this);
-        EventBus.on('order:tick',      this._onOrderTick,      this);
         EventBus.on('game:score',      this._onGameScore,      this);
         EventBus.on('game:end',        this._onGameEnd,        this);
-        EventBus.on('order:added',     this._onOrderAdded,     this);
-        EventBus.on('order:completed', this._onOrderCompleted, this);
-        EventBus.on('order:expired',   this._onOrderExpired,   this);
+        // 訂單顯示由 OrderContainer.js 負責，HUD 不再處理訂單 UI
     },
 
     onDestroy() {
@@ -69,10 +62,6 @@ const HUD = cc.Class({
         EventBus.off('game:tick',       this._onGameTick);
         EventBus.off('game:score',      this._onGameScore);
         EventBus.off('game:end',        this._onGameEnd);
-        EventBus.off('order:added',     this._onOrderAdded);
-        EventBus.off('order:tick',      this._onOrderTick);
-        EventBus.off('order:completed', this._onOrderCompleted);
-        EventBus.off('order:expired',   this._onOrderExpired);
     },
 
     // ─────────────────────────────────────────────
@@ -101,48 +90,6 @@ const HUD = cc.Class({
     },
 
     // ─────────────────────────────────────────────
-    //  order 事件
-    // ─────────────────────────────────────────────
-
-    _onOrderAdded(data) {
-        if (!this.orderContainer) return;
-
-        // // 建立一個 Label 節點代表這筆訂單
-        // const card  = new cc.Node('order_' + data.id);
-        // const label = card.addComponent(cc.Label);
-        // label.string   = data.timeLeft + 's';
-        // label.fontSize = 20;
-        // card.color     = cc.Color.WHITE;
-
-        // this.orderContainer.addChild(card);
-        // // Bug 6 fix: store recipe alongside node for safe label reconstruction
-        // this._orderNodes[data.id] = { node: card, recipe: data.recipe };
-
-        // cc.log('[HUD] 訂單新增:', data.recipe, 'id=' + data.id);
-    },
-
-    _onOrderCompleted(data) {
-        cc.log('[HUD] 訂單完成:', data.recipe, 'id=' + data.id);
-        this._removeOrderCard(data.id);
-    },
-
-    _onOrderExpired(data) {
-        cc.log('[HUD] 訂單過期:', data.recipe, 'id=' + data.id);
-        this._removeOrderCard(data.id);
-    },
-
-    _onOrderTick(data) {
-        // const entry = this._orderNodes[data.id];
-        // if (!entry) return;
-        // const label = entry.node.getComponent(cc.Label);
-        // // Bug 6 fix: reconstruct from stored recipe instead of splitting string
-        // if (label) {
-        //     label.string = Math.ceil(data.timeLeft) + 's';
-        // }
-        return;
-    },
-
-    // ─────────────────────────────────────────────
     //  內部工具
     // ─────────────────────────────────────────────
 
@@ -156,22 +103,6 @@ const HUD = cc.Class({
     _setScore(score) {
         if (!this.scoreLabel) return;
         this.scoreLabel.string = '分數: ' + score;
-    },
-
-    _removeOrderCard(id) {
-        const entry = this._orderNodes[id];
-        if (entry) {
-            entry.node.destroy();
-            delete this._orderNodes[id];
-        }
-    },
-
-    _clearAllOrders() {
-        Object.keys(this._orderNodes).forEach(id => {
-            const entry = this._orderNodes[id];
-            if (entry) entry.node.destroy();
-        });
-        this._orderNodes = {};
     },
 });
 
