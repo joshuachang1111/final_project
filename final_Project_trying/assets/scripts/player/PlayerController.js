@@ -72,6 +72,9 @@ const PlayerController = cc.Class({
         this._heldItem   = null;
         this._netTimer   = 0;
 
+        // 技能冷卻計時（秒）
+        this._skillCooldowns = { skill_1: 0, skill_2: 0 };
+
         const b = GridSystem.floorBounds();
         this._floorTop    = b.top;
         this._floorBottom = b.bottom;
@@ -135,6 +138,11 @@ const PlayerController = cc.Class({
         else if (right)         this._facing = Direction.RIGHT;
 
         this._moveWithCollision(dt);
+
+        // 更新所有技能冷卻
+        for (const key in this._skillCooldowns) {
+            if (this._skillCooldowns[key] > 0) this._skillCooldowns[key] -= dt;
+        }
 
         if (input.isJustPressed(id, A.INTERACT)) {
             this._tryInteract();
@@ -208,9 +216,25 @@ const PlayerController = cc.Class({
 
     _useSkill() {
         const skill = window._selectedSkill || 'skill_1';
-        if (skill === 'skill_1') {
-            this._spawnBoar();
+        if (this._skillCooldowns[skill] > 0) {
+            cc.log(`[Skill] ${skill} 冷卻中，剩餘 ${this._skillCooldowns[skill].toFixed(1)}s`);
+            return;
         }
+        if (skill === 'skill_1') {
+            this._skillCooldowns.skill_1 = 0;   // 熊貓暫無冷卻
+            this._spawnBoar();
+        } else if (skill === 'skill_2') {
+            this._skillCooldowns.skill_2 = 20;
+            this._useRefreshOrder();
+        }
+    },
+
+    _useRefreshOrder() {
+        // 本地觸發（只有 Host 的 OrderManager 會真正執行）
+        EventBus.emit('order:refresh');
+        // 廣播給對方
+        EventBus.emit('skill:local', { skill: 'skill_2' });
+        cc.log('[Skill] 二退：觸發訂單刷新');
     },
 
     _spawnBoar() {
@@ -244,13 +268,16 @@ const PlayerController = cc.Class({
     },
 
     _onRemoteSkill(data) {
-        // 只有本地玩家的 Controller 才執行，避免雙重召喚
+        // 只有本地玩家的 Controller 才執行，避免雙重觸發
         if (window._nmRole) {
             const localId = window._nmRole === 'host' ? 1 : 2;
             if (this.playerId !== localId) return;
         }
         if (data.skill === 'skill_1') {
             this._spawnBoarAt(data.x, data.y, data.seed);
+        } else if (data.skill === 'skill_2') {
+            // 觸發本地 OrderManager（Host 才會真正執行，Guest 等 EV_ORDER）
+            EventBus.emit('order:refresh');
         }
     },
 

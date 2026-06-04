@@ -55,8 +55,9 @@ const OrderManager = cc.Class({
         this._nextId = 0;
         this._started = false;
 
-        EventBus.on('game:start', this._onGameStart, this);
-        EventBus.on('game:end',   this._onGameEnd,   this);
+        EventBus.on('game:start',    this._onGameStart,       this);
+        EventBus.on('game:end',      this._onGameEnd,         this);
+        EventBus.on('order:refresh', this._onRefreshOrder,    this);
 
         // 訂閱 NM 的 game_event 來接收 Host 的訂單廣播。
         // Host 也會綁但會被 _isHost 過濾掉，無害。
@@ -67,8 +68,9 @@ const OrderManager = cc.Class({
     },
 
     onDestroy() {
-        EventBus.off('game:start', this._onGameStart);
-        EventBus.off('game:end',   this._onGameEnd);
+        EventBus.off('game:start',    this._onGameStart);
+        EventBus.off('game:end',      this._onGameEnd);
+        EventBus.off('order:refresh', this._onRefreshOrder);
         if (window._nm && this._onNetworkOrderEvent) {
             window._nm.off('game_event', this._onNetworkOrderEvent);
         }
@@ -203,6 +205,24 @@ const OrderManager = cc.Class({
             }
         }
         return idx;
+    },
+
+    // ── 技能二：二退 ──────────────────────────────────────
+    // 只有 Host 執行，移除第一筆訂單並立刻生成新訂單
+    _onRefreshOrder() {
+        if (!this._isHost) return;
+        if (!this._orders.length) return;
+
+        // 移除第一筆（不扣分）
+        const order = this._orders.shift();
+        cc.log('[OrderManager] 二退：移除訂單 id=', order.id, 'recipe=', order.recipe);
+        EventBus.emit('order:expired', { id: order.id, recipe: order.recipe });
+        if (window._nm) {
+            window._nm.sendGameEvent(EV_ORDER, { action: 'expired', id: order.id });
+        }
+
+        // 立刻生出新訂單
+        this._spawnOrder();
     },
 
     // 給 ServingCounter（本地玩家出餐）用：挑最急的同名訂單完成、加分、回傳被消掉的 order
