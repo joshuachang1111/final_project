@@ -73,7 +73,10 @@ const PlayerController = cc.Class({
         this._netTimer   = 0;
 
         // 技能冷卻計時（秒）
-        this._skillCooldowns = { skill_1: 0, skill_2: 0 };
+        this._skillCooldowns = { skill_1: 0, skill_2: 0, skill_3: 0 };
+
+        // 草皮大尖叫效果計時
+        this._chaosTimer = 0;
 
         const b = GridSystem.floorBounds();
         this._floorTop    = b.top;
@@ -87,11 +90,14 @@ const PlayerController = cc.Class({
         }
 
         // 監聽遠端技能事件（只有本地玩家的 Controller 才執行）
-        EventBus.on('skill:remote', this._onRemoteSkill, this);
+        EventBus.on('skill:remote',     this._onRemoteSkill,  this);
+        // 草皮大尖叫：所有 PlayerController 都監聽，但只有本地玩家的 update 會用到
+        EventBus.on('skill:chaos_start', this._onChaosStart,  this);
     },
 
     onDestroy() {
-        EventBus.off('skill:remote', this._onRemoteSkill, this);
+        EventBus.off('skill:remote',      this._onRemoteSkill, this);
+        EventBus.off('skill:chaos_start', this._onChaosStart,  this);
     },
 
     update(dt) {
@@ -123,8 +129,12 @@ const PlayerController = cc.Class({
             vy *= INV_SQRT2;
         }
 
-        this._vx = vx * SPEED;
-        this._vy = vy * SPEED;
+        // 草皮大尖叫：方向顛倒 + 速度 1.5x
+        const inChaos = this._chaosTimer > 0;
+        if (inChaos) { vx = -vx; vy = -vy; }
+
+        this._vx = vx * (inChaos ? SPEED * 1.5 : SPEED);
+        this._vy = vy * (inChaos ? SPEED * 1.5 : SPEED);
         this._isMoving = (this._vx !== 0 || this._vy !== 0);
 
         // 更新朝向（對角優先，再判斷單方向）
@@ -139,10 +149,11 @@ const PlayerController = cc.Class({
 
         this._moveWithCollision(dt);
 
-        // 更新所有技能冷卻
+        // 更新所有技能冷卻 & 效果計時
         for (const key in this._skillCooldowns) {
             if (this._skillCooldowns[key] > 0) this._skillCooldowns[key] -= dt;
         }
+        if (this._chaosTimer > 0) this._chaosTimer -= dt;
 
         if (input.isJustPressed(id, A.INTERACT)) {
             this._tryInteract();
@@ -226,6 +237,11 @@ const PlayerController = cc.Class({
         } else if (skill === 'skill_2') {
             this._skillCooldowns.skill_2 = 20;
             this._useRefreshOrder();
+        } else if (skill === 'skill_3') {
+            this._skillCooldowns.skill_3 = 30;
+            EventBus.emit('skill:chaos_start');
+            EventBus.emit('skill:local', { skill: 'skill_3' });
+            cc.log('[Skill] 草皮大尖叫：方向顛倒 5 秒');
         }
     },
 
@@ -276,9 +292,15 @@ const PlayerController = cc.Class({
         if (data.skill === 'skill_1') {
             this._spawnBoarAt(data.x, data.y, data.seed);
         } else if (data.skill === 'skill_2') {
-            // 觸發本地 OrderManager（Host 才會真正執行，Guest 等 EV_ORDER）
             EventBus.emit('order:refresh');
+        } else if (data.skill === 'skill_3') {
+            EventBus.emit('skill:chaos_start');
         }
+    },
+
+    _onChaosStart() {
+        this._chaosTimer = 5;
+        cc.log('[Skill] 草皮大尖叫效果啟動，playerId=', this.playerId);
     },
 
     // ── 互動 ──────────────────────────────────────────────
