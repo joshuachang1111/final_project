@@ -107,18 +107,18 @@ const HUD = cc.Class({
     _onOrderAdded(data) {
         if (!this.orderContainer) return;
 
-        // 建立一個 Label 節點代表這筆訂單
-        const card  = new cc.Node('order_' + data.id);
-        const label = card.addComponent(cc.Label);
-        label.string   = data.recipe + '  ' + data.timeLeft + 's';
-        label.fontSize = 20;
-        card.color     = cc.Color.WHITE;
+        // // 建立一個 Label 節點代表這筆訂單
+        // const card  = new cc.Node('order_' + data.id);
+        // const label = card.addComponent(cc.Label);
+        // label.string   = data.timeLeft + 's';
+        // label.fontSize = 20;
+        // card.color     = cc.Color.WHITE;
 
-        this.orderContainer.addChild(card);
-        // Bug 6 fix: store recipe alongside node for safe label reconstruction
-        this._orderNodes[data.id] = { node: card, recipe: data.recipe };
+        // this.orderContainer.addChild(card);
+        // // Bug 6 fix: store recipe alongside node for safe label reconstruction
+        // this._orderNodes[data.id] = { node: card, recipe: data.recipe };
 
-        cc.log('[HUD] 訂單新增:', data.recipe, 'id=' + data.id);
+        // cc.log('[HUD] 訂單新增:', data.recipe, 'id=' + data.id);
     },
 
     _onOrderCompleted(data) {
@@ -132,13 +132,14 @@ const HUD = cc.Class({
     },
 
     _onOrderTick(data) {
-        const entry = this._orderNodes[data.id];
-        if (!entry) return;
-        const label = entry.node.getComponent(cc.Label);
-        // Bug 6 fix: reconstruct from stored recipe instead of splitting string
-        if (label) {
-            label.string = entry.recipe + '  ' + data.timeLeft + 's';
-        }
+        // const entry = this._orderNodes[data.id];
+        // if (!entry) return;
+        // const label = entry.node.getComponent(cc.Label);
+        // // Bug 6 fix: reconstruct from stored recipe instead of splitting string
+        // if (label) {
+        //     label.string = Math.ceil(data.timeLeft) + 's';
+        // }
+        return;
     },
 
     // ─────────────────────────────────────────────
