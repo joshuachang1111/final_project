@@ -21,7 +21,7 @@ const SKILLS = [
       icon: 'skill_boar_icon' },
     { id: 'skill_2', name: '二退', rarity: 2,
       desc: '移除最舊的訂單並立刻\n生成一張新訂單\n冷卻 20 秒',
-      icon: null },
+      icon: 'skill_drop_icon' },
     { id: 'skill_3', name: '暴擊烹飪', rarity: 4,
       desc: '10% 機率烹飪時間減半\n暴擊時額外加 50 分',
       icon: null },
