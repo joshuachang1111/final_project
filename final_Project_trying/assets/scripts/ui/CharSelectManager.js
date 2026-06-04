@@ -221,11 +221,11 @@ const CharSelectManager = cc.Class({
         const border = new cc.Node('border');
         border.setPosition(0, 0);
         border.active = false;
-        const bg = border.addComponent(cc.Graphics);
-        bg.strokeColor = COL_SEL;
-        bg.lineWidth = 4;
-        bg.rect(-(THUMB_SIZE / 2 + 3), -(THUMB_SIZE / 2 + 3), THUMB_SIZE + 6, THUMB_SIZE + 6);
-        bg.stroke();
+        const borderGfx = border.addComponent(cc.Graphics);
+        borderGfx.strokeColor = COL_SEL;
+        borderGfx.lineWidth = 4;
+        borderGfx.rect(-(THUMB_SIZE / 2 + 3), -(THUMB_SIZE / 2 + 3), THUMB_SIZE + 6, THUMB_SIZE + 6);
+        borderGfx.stroke();
         cell.addChild(border);
 
         // 載入縮圖 portrait
@@ -281,7 +281,8 @@ const CharSelectManager = cc.Class({
         card.addChild(iconBg);
 
         if (skill.icon) {
-            const iconSp = iconBg.addComponent(cc.Sprite);
+            // _mkRect 已建好 cc.Sprite，直接取用，不能再 addComponent
+            const iconSp = iconBg.getComponent(cc.Sprite);
             iconSp.sizeMode = cc.Sprite.SizeMode.CUSTOM;
             iconBg.setContentSize(70, 70);
             cc.resources.load(skill.icon, cc.Texture2D, (err, tex) => {
