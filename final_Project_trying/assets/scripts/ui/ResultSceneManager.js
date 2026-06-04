@@ -195,15 +195,8 @@ const ResultSceneManager = cc.Class({
     },
 
     _onLeaderboard() {
-        cc.log('[ResultSceneManager] 查看排行榜 clicked');
-        cc.log('[ResultSceneManager] leaderboardPanel=', !!this.leaderboardPanel);
-        if (this.leaderboardPanel) {
-            cc.log('[ResultSceneManager] 顯示 leaderboardPanel');
-            this.leaderboardPanel.active = true;
-            this._loadLeaderboard();
-        } else {
-            cc.error('[ResultSceneManager] leaderboardPanel 未綁定！');
-        }
+        cc.log('[ResultSceneManager] 查看排行榜按鈕被點擊');
+        cc.director.loadScene('leaderboard');
     },
 
     onCloseLeaderboard() {
