@@ -139,13 +139,24 @@ const ResultSceneManager = cc.Class({
     },
 
     _submitScore(score) {
+        cc.log('[ResultSceneManager] 開始提交分數:', score);
+        cc.log('[ResultSceneManager] window._fbUser:', window._fbUser ? '✓ 存在' : '✗ 不存在');
+
         if (!LeaderboardManager._db) {
+            cc.log('[ResultSceneManager] 初始化 LeaderboardManager');
             LeaderboardManager.init();
         }
 
         const level = cc.sys.localStorage.getItem('selectedLevel') || 'unknown';
         const playerName = (window._fbUser && window._fbUser.displayName) || '訪客';
         const uid = (window._fbUser && window._fbUser.uid) || 'guest_' + Date.now();
+
+        cc.log('[ResultSceneManager] 上傳數據:', {
+            playerName: playerName,
+            uid: uid,
+            score: score,
+            level: level,
+        });
 
         LeaderboardManager.submitScore({
             playerName: playerName,
@@ -154,10 +165,12 @@ const ResultSceneManager = cc.Class({
             level: level,
         }).then((success) => {
             if (success) {
-                cc.log('[ResultSceneManager] 分數已上傳');
+                cc.log('[ResultSceneManager] ✓ 分數已成功上傳到 Firebase！');
+            } else {
+                cc.error('[ResultSceneManager] ✗ 分數提交返回 false');
             }
         }).catch((err) => {
-            cc.error('[ResultSceneManager] 上傳分數失敗:', err);
+            cc.error('[ResultSceneManager] ✗ 上傳分數失敗:', err);
         });
     },
 

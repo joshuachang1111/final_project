@@ -44,21 +44,33 @@ const LeaderboardManager = {
      * @returns {Promise} true 或 false
      */
     submitScore(scoreData) {
+        cc.log('[LeaderboardManager] submitScore called:', scoreData);
+
         if (!this._db) {
-            cc.warn('[LeaderboardManager] Firestore 未初始化，無法提交分數');
+            cc.error('[LeaderboardManager] ✗ Firestore 未初始化！');
             return Promise.resolve(false);
         }
 
         const { playerName = '訪客', uid, score, level } = scoreData;
 
-        if (!uid || score === undefined || !level) {
-            cc.error('[LeaderboardManager] 分數數據不完整', scoreData);
+        if (!uid) {
+            cc.error('[LeaderboardManager] ✗ uid 遺失！', scoreData);
+            return Promise.resolve(false);
+        }
+        if (score === undefined || score === null) {
+            cc.error('[LeaderboardManager] ✗ score 無效！', scoreData);
+            return Promise.resolve(false);
+        }
+        if (!level) {
+            cc.error('[LeaderboardManager] ✗ level 遺失！', scoreData);
             return Promise.resolve(false);
         }
 
-        cc.log('[LeaderboardManager] 上傳分數:', { playerName, score, level });
+        cc.log('[LeaderboardManager] ✓ 數據驗證通過，準備上傳:', { playerName, uid, score, level });
 
         const docId = `${uid}_${Date.now()}`;
+        cc.log('[LeaderboardManager] 文件 ID:', docId);
+
         return this._db.collection('leaderboard').doc(docId).set({
             name: playerName,
             uid: uid,
@@ -67,11 +79,11 @@ const LeaderboardManager = {
             timestamp: new Date(),
         })
             .then(() => {
-                cc.log('[LeaderboardManager] 分數上傳成功');
+                cc.log('[LeaderboardManager] ✓✓ 分數上傳成功！文件 ID:', docId);
                 return true;
             })
             .catch((err) => {
-                cc.error('[LeaderboardManager] 上傳失敗:', err.message);
+                cc.error('[LeaderboardManager] ✗✗ 上傳失敗:', err.code, err.message);
                 return false;
             });
     },
