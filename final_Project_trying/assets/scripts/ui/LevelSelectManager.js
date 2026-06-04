@@ -62,20 +62,8 @@ cc.Class({
         }
 
         if (sceneName) {
-            cc.log('【LevelSelectManager】Host 進遊戲');
-            const self = this;
-            this.scheduleOnce(() => {
-                try {
-                    cc.director.loadScene(sceneName);
-                    cc.log('【LevelSelectManager】✓ loadScene 成功');
-                } catch (err) {
-                    cc.error('【LevelSelectManager】loadScene 失敗，重試：', err);
-                    // 失敗時等 0.5 秒重試
-                    self.scheduleOnce(() => {
-                        cc.director.loadScene(sceneName);
-                    }, 0.5);
-                }
-            }, 0.5);
+            cc.log('【LevelSelectManager】Host 立即進遊戲');
+            cc.director.loadScene(sceneName);
         }
     },
 
@@ -84,11 +72,9 @@ cc.Class({
         cc.sys.localStorage.setItem('selectedLevel', msg.level || 'susui');
         cc.sys.localStorage.setItem('playerRole', window._nmRole || 'guest');
 
-        // 延遲 0.5 秒進遊戲，與 Host 同步時間
-        this.scheduleOnce(() => {
-            cc.log('[LevelSelectManager] Guest 進遊戲');
-            cc.director.loadScene('game');
-        }, 0.5);
+        // 立即進遊戲（同步由 GameNetworkBridge 負責）
+        cc.log('[LevelSelectManager] Guest 立即進遊戲');
+        cc.director.loadScene('game');
     },
 
     onBackBtn() {
