@@ -47,6 +47,15 @@ cc.Class({
             }
             // 馬上檢查是否兩人都準備好
             this._checkBothReady();
+
+            // 3 秒後如果還沒開始，自動開始遊戲（防止單人遊戲或網路超時）
+            this.scheduleOnce(() => {
+                if (!this._gameStarted) {
+                    cc.log('[GameNetworkBridge] 3秒超時，自動開始遊戲');
+                    this._remoteReady = true; // 假設對方準備好
+                    this._checkBothReady();
+                }
+            }, 3);
         }, 0.5);
 
     },
