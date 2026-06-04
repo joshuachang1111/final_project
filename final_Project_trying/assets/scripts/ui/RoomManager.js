@@ -56,16 +56,15 @@ cc.Class({
         // 离开 room.fire 场景时，移除所有事件订阅，避免干扰其他场景
         const nm = window._nm;
         if (nm) {
-            // 移除 RoomManager 訂閱的所有事件
-            // 注意：nm.off(event) 會移除該事件的所有訂閱
-            nm.off('room_created');
-            nm.off('guest_joined');
-            nm.off('guest_waiting');
-            nm.off('host_info');
-            nm.off('start_game');
-            nm.off('player_disconnected');
-            nm.off('error');
-            cc.log('[RoomManager] ✓ 已清空所有事件訂閱');
+            // 用保存的回調引數移除，確保只移除 RoomManager 的訂閱
+            if (this._onRoomCreatedCb)        nm.off('room_created', this._onRoomCreatedCb);
+            if (this._onGuestJoinedCb)        nm.off('guest_joined', this._onGuestJoinedCb);
+            if (this._onGuestWaitingCb)       nm.off('guest_waiting', this._onGuestWaitingCb);
+            if (this._onHostInfoCb)           nm.off('host_info', this._onHostInfoCb);
+            if (this._onStartGameCb)          nm.off('start_game', this._onStartGameCb);
+            if (this._onPlayerDisconnectedCb) nm.off('player_disconnected', this._onPlayerDisconnectedCb);
+            if (this._onErrorCb)              nm.off('error', this._onErrorCb);
+            cc.log('[RoomManager] ✓ 已移除所有事件訂閱（使用回調引參）');
         }
     },
 
@@ -117,13 +116,24 @@ cc.Class({
         }
 
         const self = this;
-        nm.on('room_created', function(msg) { self._onRoomCreated.call(self, msg); });
-        nm.on('guest_joined', function(msg) { self._onGuestJoined.call(self, msg); });
-        nm.on('guest_waiting', function() { self._onGuestWaiting.call(self); });
-        nm.on('host_info', function(msg) { self._onHostInfo.call(self, msg); });
-        nm.on('start_game', function(msg) { self._onStartGameEvent.call(self, msg); });
-        nm.on('player_disconnected', function() { self._onPlayerDisconnected.call(self); });
-        nm.on('error', function(msg) { self._onNetworkError.call(self, msg); });
+        // 保存所有回調引數，以便在 onDestroy 時正確移除
+        this._onRoomCreatedCb = function(msg) { self._onRoomCreated.call(self, msg); };
+        this._onGuestJoinedCb = function(msg) { self._onGuestJoined.call(self, msg); };
+        this._onGuestWaitingCb = function() { self._onGuestWaiting.call(self); };
+        this._onHostInfoCb = function(msg) { self._onHostInfo.call(self, msg); };
+        this._onStartGameCb = function(msg) { self._onStartGameEvent.call(self, msg); };
+        this._onPlayerDisconnectedCb = function() { self._onPlayerDisconnected.call(self); };
+        this._onErrorCb = function(msg) { self._onNetworkError.call(self, msg); };
+
+        nm.on('room_created', this._onRoomCreatedCb);
+        nm.on('guest_joined', this._onGuestJoinedCb);
+        nm.on('guest_waiting', this._onGuestWaitingCb);
+        nm.on('host_info', this._onHostInfoCb);
+        nm.on('start_game', this._onStartGameCb);
+        nm.on('player_disconnected', this._onPlayerDisconnectedCb);
+        nm.on('error', this._onErrorCb);
+
+        cc.log('[RoomManager] ✓ 已訂閱所有事件');
 
         // 如果是 Host，立即建立房間
         if (window._nmRole === 'host') {
