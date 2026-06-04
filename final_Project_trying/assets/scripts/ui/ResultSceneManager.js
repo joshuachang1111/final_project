@@ -91,6 +91,15 @@ const ResultSceneManager = cc.Class({
 
         // 監聽遊戲結束事件，顯示分數並上傳排行榜
         EventBus.on('game:end', this._onGameEnd, this);
+
+        // Guest 訂閱 Host 的 result 選擇 + start_game 兜底，否則 Host 按再玩一次
+        // 之後這邊只是 log「Code 4 收到」但沒人接，Guest 永遠卡在 result scene。
+        if (!isHost && window._nm) {
+            window._nm.on('host_result_choice', this._onHostChoice, this);
+            // Fallback: 如果 code 4 已經處理過、但 Guest 還沒切到 levelselect
+            // 之前 Host 就先按關卡了，至少能直接補進遊戲。
+            window._nm.on('start_game', this._onStartGameFallback, this);
+        }
     },
 
     _initFirebase() {
@@ -119,6 +128,11 @@ const ResultSceneManager = cc.Class({
         if (cc.isValid(this.leaderboardBtn) && cc.isValid(this.leaderboardBtn.node)) {
             this.leaderboardBtn.node.off('click', this._onLeaderboard, this);
         }
+
+        if (window._nm) {
+            window._nm.off('host_result_choice', this._onHostChoice);
+            window._nm.off('start_game', this._onStartGameFallback);
+        }
     },
 
     // ── 遊戲結束 ──────────────────────────────────
@@ -133,19 +147,38 @@ const ResultSceneManager = cc.Class({
 
         // Host 才上傳分數到排行榜
         const isHost = window._nmRole !== 'guest';
+        cc.log('[ResultSceneManager] 診斷:');
+        cc.log('  - window._nmRole=', window._nmRole);
+        cc.log('  - isHost=', isHost);
+        cc.log('  - window._fbUser=', !!window._fbUser);
+
         if (isHost && window._fbUser) {
+            cc.log('[ResultSceneManager] ✓ 條件滿足，呼叫 _submitScore');
             this._submitScore(data.score);
+        } else {
+            cc.log('[ResultSceneManager] ✗ 條件不滿足，不上傳分數');
         }
     },
 
     _submitScore(score) {
+        cc.log('[ResultSceneManager] 開始提交分數:', score);
+        cc.log('[ResultSceneManager] window._fbUser:', window._fbUser ? '✓ 存在' : '✗ 不存在');
+
         if (!LeaderboardManager._db) {
+            cc.log('[ResultSceneManager] 初始化 LeaderboardManager');
             LeaderboardManager.init();
         }
 
         const level = cc.sys.localStorage.getItem('selectedLevel') || 'unknown';
         const playerName = (window._fbUser && window._fbUser.displayName) || '訪客';
         const uid = (window._fbUser && window._fbUser.uid) || 'guest_' + Date.now();
+
+        cc.log('[ResultSceneManager] 上傳數據:', {
+            playerName: playerName,
+            uid: uid,
+            score: score,
+            level: level,
+        });
 
         LeaderboardManager.submitScore({
             playerName: playerName,
@@ -154,10 +187,12 @@ const ResultSceneManager = cc.Class({
             level: level,
         }).then((success) => {
             if (success) {
-                cc.log('[ResultSceneManager] 分數已上傳');
+                cc.log('[ResultSceneManager] ✓ 分數已成功上傳到 Firebase！');
+            } else {
+                cc.error('[ResultSceneManager] ✗ 分數提交返回 false');
             }
         }).catch((err) => {
-            cc.error('[ResultSceneManager] 上傳分數失敗:', err);
+            cc.error('[ResultSceneManager] ✗ 上傳分數失敗:', err);
         });
     },
 
@@ -202,6 +237,38 @@ const ResultSceneManager = cc.Class({
     _onLeaderboard() {
         cc.log('[ResultSceneManager] 查看排行榜按鈕被點擊');
         cc.director.loadScene('leaderboard');
+    },
+
+    // ── Guest 收到 Host 的選擇 ───────────────────────────
+
+    _onHostChoice(msg) {
+        if (this._clicked) return;
+        this._clicked = true;
+        cc.log('[ResultSceneManager] Guest 收到 host 選擇:', msg.choice);
+        if (msg.choice === 'replay') {
+            if (window._nm) window._nm._gameStarted = false;
+            EventBus.clear();
+            cc.director.loadScene('levelselect');
+        } else {
+            // menu
+            if (window._nm && typeof window._nm.leaveRoom === 'function') {
+                window._nm.leaveRoom();
+            }
+            EventBus.clear();
+            cc.director.loadScene('menu');
+        }
+    },
+
+    // Fallback: Guest 還沒切到 levelselect，Host 就已經按關卡了。
+    // 直接補進 game scene，selectedLevel 用 NM 傳來的。
+    _onStartGameFallback(msg) {
+        if (this._clicked) return;
+        this._clicked = true;
+        cc.log('[ResultSceneManager] Guest 從 result 直接補進 game, level=', msg.level);
+        cc.sys.localStorage.setItem('selectedLevel', msg.level || 'susui');
+        cc.sys.localStorage.setItem('playerRole', window._nmRole || 'guest');
+        EventBus.clear();
+        cc.director.loadScene('game');
     },
 
     onCloseLeaderboard() {

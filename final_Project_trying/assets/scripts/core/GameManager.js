@@ -134,7 +134,13 @@ const GameManager = cc.Class({
         this._timeLeft -= 1;
         EventBus.emit('game:tick', { timeLeft: this._timeLeft });
 
+        // 每 10 秒輸出一次日誌
+        if (this._timeLeft % 10 === 0) {
+            cc.log('[GameManager] _tick: timeLeft=', this._timeLeft);
+        }
+
         if (this._timeLeft <= 0) {
+            cc.log('[GameManager] ✓ 時間到，呼叫 _endGame');
             this._endGame();
         }
     },
@@ -143,9 +149,12 @@ const GameManager = cc.Class({
         this.unschedule(this._tick);
         this._phase = Phase.RESULT;
         GridSystem.reset();
-        EventBus.emit('game:end', { score: this._score });
+        // 先轉場到 result 場景（讓 ResultSceneManager 初始化）
+        // 然後再發出 game:end 事件（確保 ResultSceneManager 已準備好接收）
+        cc.director.loadScene('result');
         this.scheduleOnce(() => {
-            cc.director.loadScene('result');
+            cc.log('[GameManager] 延遲後發出 game:end 事件，score=', this._score);
+            EventBus.emit('game:end', { score: this._score });
         }, 0.5);
     },
 });
