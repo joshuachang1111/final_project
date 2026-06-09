@@ -15,10 +15,9 @@ const EventBus    = require('../core/EventBus');
 const GameManager = require('../core/GameManager');
 
 const HOLD_DURATION = 3.0;    // 需長按幾秒
-const RING_RADIUS   = 35;     // 進度圓圈半徑（px）
-const RING_WIDTH    = 8;      // 圓圈線寬
-const IMG_W         = 900;    // 說明圖顯示寬度
-const IMG_H         = 500;    // 說明圖顯示高度
+const RING_RADIUS   = 22;     // 進度圓圈半徑（px）
+const RING_WIDTH    = 5;      // 圓圈線寬
+const IMG_SIZE      = 580;    // 說明圖顯示大小（原圖 2048×2048，等比顯示不變形）
 
 const GuideOverlay = cc.Class({
     extends: cc.Component,
@@ -35,6 +34,9 @@ const GuideOverlay = cc.Class({
         this._holdTimer  = 0;
         this._spaceHeld  = false;
         this._started    = false;
+
+        // 確保蓋在所有遊戲節點上面
+        this.node.zIndex = 200;
 
         this._buildUI();
 
@@ -72,10 +74,10 @@ const GuideOverlay = cc.Class({
         gfxBg.fill();
         this.node.addChild(bgNode);
 
-        // 關卡說明圖（置中偏上）
+        // 關卡說明圖（正方形等比顯示，不變形）
         this._imgNode = new cc.Node('guideImage');
-        this._imgNode.setContentSize(IMG_W, IMG_H);
-        this._imgNode.setPosition(0, 70);
+        this._imgNode.setContentSize(IMG_SIZE, IMG_SIZE);
+        this._imgNode.setPosition(0, 50);
         const imgSp = this._imgNode.addComponent(cc.Sprite);
         imgSp.sizeMode = cc.Sprite.SizeMode.CUSTOM;
         if (this.guideTexture) {
@@ -85,7 +87,7 @@ const GuideOverlay = cc.Class({
 
         // 進度圓圈（圖片下方）
         const ringNode = new cc.Node('ring');
-        ringNode.setPosition(0, -220);
+        ringNode.setPosition(0, -268);
         this._gfx = ringNode.addComponent(cc.Graphics);
         this.node.addChild(ringNode);
         this._drawRing(0);
@@ -98,7 +100,7 @@ const GuideOverlay = cc.Class({
         lbl.lineHeight        = 24;
         lbl.horizontalAlign   = cc.Label.HorizontalAlign.CENTER;
         this._instrNode.color = cc.color(255, 255, 255, 200);
-        this._instrNode.setPosition(0, -275);
+        this._instrNode.setPosition(0, -310);
         this.node.addChild(this._instrNode);
     },
 
