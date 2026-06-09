@@ -1,0 +1,38 @@
+{
+  "ver": "2.3.7",
+  "uuid": "87df0785-a66e-4db0-bd9c-cb98c61551c8",
+  "importer": "texture",
+  "type": "sprite",
+  "wrapMode": "clamp",
+  "filterMode": "bilinear",
+  "premultiplyAlpha": false,
+  "genMipmaps": false,
+  "packable": true,
+  "width": 1254,
+  "height": 1254,
+  "platformSettings": {},
+  "subMetas": {
+    "foodbox_tomato": {
+      "ver": "1.0.6",
+      "uuid": "7ba0e1ee-3d9d-485a-a765-78d80e7b74c4",
+      "importer": "sprite-frame",
+      "rawTextureUuid": "87df0785-a66e-4db0-bd9c-cb98c61551c8",
+      "trimType": "auto",
+      "trimThreshold": 1,
+      "rotated": false,
+      "offsetX": 7.5,
+      "offsetY": 5.5,
+      "trimX": 154,
+      "trimY": 170,
+      "width": 961,
+      "height": 903,
+      "rawWidth": 1254,
+      "rawHeight": 1254,
+      "borderTop": 0,
+      "borderBottom": 0,
+      "borderLeft": 0,
+      "borderRight": 0,
+      "subMetas": {}
+    }
+  }
+}
