@@ -7,6 +7,7 @@ const EV_STATION    = 11;   // 站台互動（pickup / place）
 const EV_SERVE      = 12;   // 出餐成功（用於同步分數與訂單移除，避免雙重計分）
 const EV_CHAR       = 13;   // 角色選擇同步（遊戲開始時各自廣播）
 const EV_SKILL      = 14;   // 技能發動同步（x, y, skill）
+const EV_GUIDE      = 15;   // Host 長按空白完成，通知 Guest 開始遊戲
 const EV_TICK_SYNC  = 20;   // 計時器同步（Host 廣播，保持兩人計時同步）
 const EV_SCORE_SYNC = 21;   // 分數同步（任一方分數改變時廣播）
 
@@ -27,14 +28,18 @@ cc.Class({
         this._onLocalServe   = this._handleLocalServe.bind(this);
         this._onLocalScore   = this._handleLocalScore.bind(this);
         this._onLocalSkill   = this._handleLocalSkill.bind(this);
+        this._onGuideComplete = this._handleGuideComplete.bind(this);
+        this._onGameStart    = this._handleGameStart.bind(this);
         this._onGameEvent    = (msg) => this._applyGameEvent.call(this, msg);
 
-        EventBus.on('player:moved',    this._onLocalMove,   this);
-        EventBus.on('station:pickup',  this._onLocalPickup, this);
-        EventBus.on('station:place',   this._onLocalPlace,  this);
-        EventBus.on('station:serve',   this._onLocalServe,  this);
-        EventBus.on('game:score',      this._onLocalScore,  this);
-        EventBus.on('skill:local',     this._onLocalSkill,  this);
+        EventBus.on('player:moved',        this._onLocalMove,    this);
+        EventBus.on('station:pickup',      this._onLocalPickup,  this);
+        EventBus.on('station:place',       this._onLocalPlace,   this);
+        EventBus.on('station:serve',       this._onLocalServe,   this);
+        EventBus.on('game:score',          this._onLocalScore,   this);
+        EventBus.on('skill:local',         this._onLocalSkill,   this);
+        EventBus.on('guide:local_complete', this._onGuideComplete, this);
+        EventBus.on('game:start',          this._onGameStart,    this);
 
         if (window._nm) {
             window._nm.on('game_event', this._onGameEvent);
@@ -84,16 +89,9 @@ cc.Class({
 
         if (this._localReady && this._remoteReady) {
             this._gameStarted = true;
-            cc.log('[GameNetworkBridge] ✓ 兩人都已進場，開始遊戲！');
-            if (GameManager.instance) {
-                cc.log('[GameNetworkBridge] 呼叫 GameManager.startGame()');
-                GameManager.instance.startGame();
-
-                // 開始計時器同步（Host 定期發送，Guest 接收）
-                this._setupTimerSync();
-            } else {
-                cc.error('[GameNetworkBridge] ✗ GameManager.instance 不存在！');
-            }
+            cc.log('[GameNetworkBridge] ✓ 兩人都已進場，顯示關卡說明');
+            // 通知 GuideOverlay 顯示（不直接呼叫 startGame，等 Host 長按空白鍵）
+            EventBus.emit('game:ready');
         } else {
             cc.log('[GameNetworkBridge] 還在等待對方... _localReady=', this._localReady, '_remoteReady=', this._remoteReady);
         }
@@ -116,11 +114,14 @@ cc.Class({
     },
 
     onDestroy() {
-        EventBus.off('player:moved',   this._onLocalMove,   this);
-        EventBus.off('station:pickup', this._onLocalPickup, this);
-        EventBus.off('station:place',  this._onLocalPlace,  this);
-        EventBus.off('station:serve',  this._onLocalServe,  this);
-        EventBus.off('game:score',     this._onLocalScore,  this);
+        EventBus.off('player:moved',        this._onLocalMove,    this);
+        EventBus.off('station:pickup',      this._onLocalPickup,  this);
+        EventBus.off('station:place',       this._onLocalPlace,   this);
+        EventBus.off('station:serve',       this._onLocalServe,   this);
+        EventBus.off('game:score',          this._onLocalScore,   this);
+        EventBus.off('skill:local',         this._onLocalSkill,   this);
+        EventBus.off('guide:local_complete', this._onGuideComplete, this);
+        EventBus.off('game:start',          this._onGameStart,    this);
 
         if (window._nm) {
             window._nm.off('game_event', this._onGameEvent);
@@ -226,6 +227,7 @@ cc.Class({
         else if (code === EV_STATION) this._applyRemoteStation(data);
         else if (code === EV_SERVE)   this._applyRemoteServe(data);
         else if (code === EV_SKILL)   this._applyRemoteSkill(data);
+        else if (code === EV_GUIDE)   this._applyRemoteGuide();
     },
 
     // ── 技能同步 ──────────────────────────────────────────
@@ -237,7 +239,7 @@ cc.Class({
             x:    data.x,
             y:    data.y,
             seed: data.seed,
-            mode: data.mode,   // 清交小徑需要 mode 決定誰被傳送
+            mode: data.mode,
         });
     },
 
@@ -249,6 +251,24 @@ cc.Class({
             seed: data.seed,
             mode: data.mode,
         });
+    },
+
+    // ── 關卡說明 Guide ────────────────────────────────────
+
+    // Host 長按完成 → 廣播給 Guest
+    _handleGuideComplete() {
+        if (!window._nm) return;
+        window._nm.sendGameEvent(EV_GUIDE, {});
+    },
+
+    // Guest 收到 → 通知 GuideOverlay 開始遊戲
+    _applyRemoteGuide() {
+        EventBus.emit('guide:remote_complete');
+    },
+
+    // game:start 觸發後才啟動計時器同步（Host 定期廣播給 Guest）
+    _handleGameStart() {
+        this._setupTimerSync();
     },
 
     _applyRemoteTickSync(data) {

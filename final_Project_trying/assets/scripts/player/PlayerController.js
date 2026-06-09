@@ -107,6 +107,9 @@ const PlayerController = cc.Class({
             if (this.playerId !== localId) return;
         }
 
+        // 遊戲尚未開始（Guide 顯示中）鎖定輸入
+        if (GameManager.instance && GameManager.instance._phase !== 'playing') return;
+
         const input = InputHandler.instance;
         if (!input) return;
 
