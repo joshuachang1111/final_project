@@ -13,7 +13,7 @@
   },
   {
     "__type__": "cc.Node",
-    "_name": "FoodBox_1_1",
+    "_name": "FoodBox_Bread",
     "_objFlags": 0,
     "_parent": null,
     "_children": [],
@@ -56,8 +56,8 @@
         0,
         0,
         0,
-        0,
-        1,
+        0.13052619222005157,
+        0.9914448613738104,
         1,
         1,
         1
@@ -67,7 +67,7 @@
       "__type__": "cc.Vec3",
       "x": 0,
       "y": 0,
-      "z": 0
+      "z": 15
     },
     "_skewX": 0,
     "_skewY": 0,
@@ -92,7 +92,7 @@
     "_srcBlendFactor": 770,
     "_dstBlendFactor": 771,
     "_spriteFrame": {
-      "__uuid__": "d4e9b447-55f3-41fa-b3c2-feea68490d04"
+      "__uuid__": "3dd4a4c7-856d-4859-a789-12c8c088276c"
     },
     "_type": 0,
     "_sizeMode": 0,
@@ -109,7 +109,7 @@
     "_id": ""
   },
   {
-    "__type__": "4e447xkKR9G57vXz4QR6l44",
+    "__type__": "8e3fcY8CMJLz60M3pDJdmqe",
     "_name": "",
     "_objFlags": 0,
     "node": {
@@ -117,8 +117,16 @@
     },
     "_enabled": true,
     "stationType": "FOOD_BOX",
-    "gridCol": 1,
+    "gridCol": 0,
     "gridRow": 1,
+    "visualScale": 1.45,
+    "itemScale": 0.65,
+    "itemOffsetY": 12,
+    "foodType": "bread",
+    "foodSpriteFrame": {
+      "__uuid__": "78987d7f-21ba-4452-9753-22d1cf808301"
+    },
+    "foodScale": 0.07,
     "_id": ""
   },
   {
