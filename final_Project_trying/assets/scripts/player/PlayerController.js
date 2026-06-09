@@ -1,33 +1,17 @@
 /**
  * PlayerController  (cc.Component)
- * 掛在每個玩家的節點上。
  *
- * ── 狀態機 ─────────────────────────────────────────────
+ * ── 移動（velocity-based，自由行走）───────────────────────
+ *  SPEED = 150 px/s，對角線 ÷√2
+ *  AABB 分軸碰撞：先解 X，再解 Y（沿牆滑動）
+ *  碰撞對象：GridSystem blocked 格子 + 地板邊界
  *
- *  移動狀態 (MovementState)
- *   IDLE    → 接受輸入，可以移動或互動
- *   MOVING  → tween 執行中，忽略所有輸入
+ * ── 互動 ────────────────────────────────────────────────
+ *  按 INTERACT → 以當前世界座標算出格子 → 朝向前方格子查 Station
  *
- *  持有狀態 (CarryState)
- *   EMPTY   → 雙手空著
- *   HOLDING → 拿著一個 item node
- *
- *  兩個狀態獨立，組合出：
- *   IDLE + EMPTY    → 可移動、可拾取
- *   IDLE + HOLDING  → 可移動、可放下 / 遞交
- *   MOVING + *      → 不能做任何事，等 tween 結束
- *
- * ── 朝向 (Facing) ──────────────────────────────────────
- *  UP / DOWN / LEFT / RIGHT
- *  按下移動鍵時立即更新朝向，並嘗試移動。
- *  互動時以當前朝向的前方格子為目標。
- *
- * ── 互動流程 ───────────────────────────────────────────
- *  1. 玩家按下 INTERACT
- *  2. 計算朝向前方的格子 (targetCol, targetRow)
- *  3. 向 GameManager 查詢該格子是否有 StationBase
- *  4. 有 → 呼叫 station.onInteract(this)，由 station 決定行為
- *  5. 沒有 → 無事發生
+ * ── 網路同步（20 Hz）─────────────────────────────────────
+ *  emit 'player:moved'：{ playerId, x, y, facing }
+ *  遠端呼叫 applyNetworkState(x, y, facingName)
  */
 
 const GridSystem   = require('../core/GridSystem');
@@ -35,210 +19,230 @@ const EventBus     = require('../core/EventBus');
 const GameManager  = require('../core/GameManager');
 const InputHandler = require('../input/InputHandler');
 
-// ── 常數 ─────────────────────────────────────────────────
-
-const MovementState = {
-    IDLE:   'idle',
-    MOVING: 'moving',
-};
+const SPEED             = 150;
+const PLAYER_HALF_W     = 20;
+const PLAYER_HALF_H     = 14;
+const NET_SEND_INTERVAL = 0.05;   // 20 Hz
+const INV_SQRT2         = 0.70710678;
 
 const CarryState = {
     EMPTY:   'empty',
     HOLDING: 'holding',
 };
 
-/** 四個方向的格子偏移 */
 const Direction = {
-    UP:    { dc:  0, dr: -1, name: 'up'    },
-    DOWN:  { dc:  0, dr:  1, name: 'down'  },
-    LEFT:  { dc: -1, dr:  0, name: 'left'  },
-    RIGHT: { dc:  1, dr:  0, name: 'right' },
+    UP:         { dc:  0, dr: -1, name: 'up'         },
+    DOWN:       { dc:  0, dr:  1, name: 'down'       },
+    LEFT:       { dc: -1, dr:  0, name: 'left'       },
+    RIGHT:      { dc:  1, dr:  0, name: 'right'      },
+    UP_RIGHT:   { dc:  1, dr: -1, name: 'up_right'   },
+    UP_LEFT:    { dc: -1, dr: -1, name: 'up_left'    },
+    DOWN_RIGHT: { dc:  1, dr:  1, name: 'down_right' },
+    DOWN_LEFT:  { dc: -1, dr:  1, name: 'down_left'  },
 };
-
-// ─────────────────────────────────────────────────────────
 
 const PlayerController = cc.Class({
     extends: cc.Component,
 
-    statics: {
-        MovementState,
-        CarryState,
-        Direction,
-    },
+    statics: { CarryState, Direction },
 
     properties: {
-        /** 1 = WASD + F，2 = 方向鍵 + Space */
         playerId: {
             default: 1,
             type: cc.Integer,
-            tooltip: '1 或 2，對應 InputHandler 的按鍵配置',
         },
-        /** 每格移動耗時（秒） */
-        moveTime: {
-            default: 0.12,
-            tooltip: '越小越快，建議 0.10 ~ 0.18',
-        },
-        /** 初始格子位置 */
-        startCol: { default: 1, type: cc.Integer },
+        startCol: { default: 5, type: cc.Integer },
         startRow: { default: 4, type: cc.Integer },
     },
 
-    // ─────────────────────────────────────────────
-    //  生命週期
-    // ─────────────────────────────────────────────
-
     onLoad() {
-        this._col           = this.startCol;
-        this._row           = this.startRow;
-        this._facing        = Direction.DOWN;
-        this._movementState = MovementState.IDLE;
-        this._carryState    = CarryState.EMPTY;
-        this._heldItem      = null;   // 拿著的 cc.Node
+        const pos    = GridSystem.toWorld(this.startCol, this.startRow);
+        this._px     = pos.x;
+        this._py     = pos.y;
+        this._vx     = 0;
+        this._vy     = 0;
+        this._isMoving   = false;
+        this._facing     = Direction.DOWN;
+        this._carryState = CarryState.EMPTY;
+        this._heldItem   = null;
+        this._netTimer   = 0;
 
-        // 對齊到起始格子
-        const pos = GridSystem.toWorld(this._col, this._row);
-        this.node.x = pos.x;
-        this.node.y = pos.y;
+        const b = GridSystem.floorBounds();
+        this._floorTop    = b.top;
+        this._floorBottom = b.bottom;
 
-        // 向 GameManager 登記自己
+        this.node.x = this._px;
+        this.node.y = this._py;
+
         if (GameManager.instance) {
             GameManager.instance.registerPlayer(this.playerId, this);
         }
     },
 
-    // ─────────────────────────────────────────────
-    //  主迴圈
-    // ─────────────────────────────────────────────
-
-    update() {
-        // tween 執行中，不接受任何輸入
-        if (this._movementState === MovementState.MOVING) return;
+    update(dt) {
+        // 多人模式：只有本地玩家接受鍵盤
+        if (window._nmRole) {
+            const localId = window._nmRole === 'host' ? 1 : 2;
+            if (this.playerId !== localId) return;
+        }
 
         const input = InputHandler.instance;
         if (!input) return;
 
         const A  = InputHandler.Action;
-        const id = this.playerId;
+        const id = 1;
 
-        // ── 移動輸入（held） ──────────────────────────
-        // 優先順序：上 > 下 > 左 > 右（同時按只處理第一個）
-        let dir = null;
-        if      (input.isHeld(id, A.MOVE_UP))    dir = Direction.UP;
-        else if (input.isHeld(id, A.MOVE_DOWN))  dir = Direction.DOWN;
-        else if (input.isHeld(id, A.MOVE_LEFT))  dir = Direction.LEFT;
-        else if (input.isHeld(id, A.MOVE_RIGHT)) dir = Direction.RIGHT;
+        const up    = input.isHeld(id, A.MOVE_UP);
+        const down  = input.isHeld(id, A.MOVE_DOWN);
+        const left  = input.isHeld(id, A.MOVE_LEFT);
+        const right = input.isHeld(id, A.MOVE_RIGHT);
 
-        if (dir) {
-            this._facing = dir;   // 按鍵時立即更新朝向
-            this._tryMove(this._col + dir.dc, this._row + dir.dr);
+        let vx = 0, vy = 0;
+        if (left)  vx -= 1;
+        if (right) vx += 1;
+        if (up)    vy += 1;
+        if (down)  vy -= 1;
+
+        if (vx !== 0 && vy !== 0) {
+            vx *= INV_SQRT2;
+            vy *= INV_SQRT2;
         }
 
-        // ── 互動輸入（just pressed） ──────────────────
+        this._vx = vx * SPEED;
+        this._vy = vy * SPEED;
+        this._isMoving = (this._vx !== 0 || this._vy !== 0);
+
+        // 更新朝向（對角優先，再判斷單方向）
+        if      (up   && right) this._facing = Direction.UP_RIGHT;
+        else if (up   && left)  this._facing = Direction.UP_LEFT;
+        else if (down && right) this._facing = Direction.DOWN_RIGHT;
+        else if (down && left)  this._facing = Direction.DOWN_LEFT;
+        else if (up)            this._facing = Direction.UP;
+        else if (down)          this._facing = Direction.DOWN;
+        else if (left)          this._facing = Direction.LEFT;
+        else if (right)         this._facing = Direction.RIGHT;
+
+        this._moveWithCollision(dt);
+
         if (input.isJustPressed(id, A.INTERACT)) {
             this._tryInteract();
         }
-    },
 
-    // ─────────────────────────────────────────────
-    //  移動
-    // ─────────────────────────────────────────────
-
-    _tryMove(targetCol, targetRow) {
-        if (!GridSystem.isWalkable(targetCol, targetRow)) return;
-
-        this._movementState = MovementState.MOVING;
-        this._col = targetCol;
-        this._row = targetRow;
-
-        const pos = GridSystem.toWorld(targetCol, targetRow);
-
-        cc.tween(this.node)
-            .to(this.moveTime, { x: pos.x, y: pos.y }, { easing: 'quadOut' })
-            .call(() => {
-                this._movementState = MovementState.IDLE;
-            })
-            .start();
-
-        EventBus.emit('player:moved', {
-            playerId: this.playerId,
-            col:      this._col,
-            row:      this._row,
-            facing:   this._facing.name,
-        });
-    },
-
-    // ─────────────────────────────────────────────
-    //  互動
-    // ─────────────────────────────────────────────
-
-    _tryInteract() {
-        const targetCol = this._col + this._facing.dc;
-        const targetRow = this._row + this._facing.dr;
-
-        const station = GameManager.instance
-            ? GameManager.instance.getStation(targetCol, targetRow)
-            : null;
-
-        if (station) {
-            station.onInteract(this);
+        // 網路同步
+        this._netTimer += dt;
+        if (this._netTimer >= NET_SEND_INTERVAL) {
+            this._netTimer = 0;
+            EventBus.emit('player:moved', {
+                playerId: this.playerId,
+                x:        this._px,
+                y:        this._py,
+                facing:   this._facing.name,
+            });
         }
     },
 
-    // ─────────────────────────────────────────────
-    //  持有 API（由 StationBase 呼叫）
-    // ─────────────────────────────────────────────
+    // ── 移動與碰撞 ────────────────────────────────────────
 
-    /**
-     * 從站台拿起 item node
-     * @param {cc.Node} itemNode
-     */
-    pickUp(itemNode) {
-        if (this._carryState === CarryState.HOLDING) return;
+    _moveWithCollision(dt) {
+        const blocked = GridSystem.getBlockedCells();
 
-        this._heldItem   = itemNode;
-        this._carryState = CarryState.HOLDING;
+        // X 軸
+        let nx = this._px + this._vx * dt;
+        const xb = GridSystem.getFloorXBoundsAtWorldY(this._py);
+        nx = Math.max(xb.left + PLAYER_HALF_W, Math.min(xb.right - PLAYER_HALF_W, nx));
+        nx = this._resolveAxisX(blocked, nx, this._py);
+        this._px = nx;
 
-        // 將 item 節點掛到玩家節點下方，顯示在頭上
-        itemNode.parent = this.node;
-        itemNode.x = 0;
-        itemNode.y = GridSystem.CELL_SIZE * 0.6;
+        // Y 軸
+        let ny = this._py + this._vy * dt;
+        ny = Math.max(this._floorBottom + PLAYER_HALF_H, Math.min(this._floorTop - PLAYER_HALF_H, ny));
+        ny = this._resolveAxisY(blocked, this._px, ny);
+        this._py = ny;
 
-        EventBus.emit('player:pickup', {
-            playerId: this.playerId,
-            item:     itemNode.name,
-        });
+        this.node.x = this._px;
+        this.node.y = this._py;
     },
 
-    /**
-     * 將持有的 item node 還給呼叫者
-     * @returns {cc.Node|null}
-     */
+    _resolveAxisX(blocked, nx, py) {
+        for (const { col, row } of blocked) {
+            const b = GridSystem.getCellBounds(col, row);
+            if (py - PLAYER_HALF_H >= b.top)    continue;
+            if (py + PLAYER_HALF_H <= b.bottom) continue;
+            if (nx + PLAYER_HALF_W <= b.left)   continue;
+            if (nx - PLAYER_HALF_W >= b.right)  continue;
+            nx = (this._px <= b.cx) ? b.left - PLAYER_HALF_W : b.right + PLAYER_HALF_W;
+        }
+        return nx;
+    },
+
+    _resolveAxisY(blocked, px, ny) {
+        for (const { col, row } of blocked) {
+            const b = GridSystem.getCellBounds(col, row);
+            if (px - PLAYER_HALF_W >= b.right)  continue;
+            if (px + PLAYER_HALF_W <= b.left)   continue;
+            if (ny + PLAYER_HALF_H <= b.bottom) continue;
+            if (ny - PLAYER_HALF_H >= b.top)    continue;
+            ny = (this._py <= b.cy) ? b.bottom - PLAYER_HALF_H : b.top + PLAYER_HALF_H;
+        }
+        return ny;
+    },
+
+    // ── 互動 ──────────────────────────────────────────────
+
+    _tryInteract() {
+        const { col, row } = GridSystem.toGrid(this._px, this._py);
+        const targetCol = col + this._facing.dc;
+        const targetRow = row + this._facing.dr;
+        if (!GameManager.instance) return;
+        const station = GameManager.instance.getStation(targetCol, targetRow);
+        if (station) station.onInteract(this);
+    },
+
+    // ── 持有 API ──────────────────────────────────────────
+
+    pickUp(itemNode) {
+        if (this._carryState === CarryState.HOLDING) return;
+        this._heldItem   = itemNode;
+        this._carryState = CarryState.HOLDING;
+        itemNode.parent  = this.node;
+        itemNode.x       = 0;
+        itemNode.y       = GridSystem.CELL_H * 0.6;
+        itemNode.scale   = (typeof itemNode._carryScale === 'number') ? itemNode._carryScale : (itemNode.scale || 1);
+        EventBus.emit('player:pickup', { playerId: this.playerId, item: itemNode.name });
+    },
+
     dropItem() {
         if (this._carryState === CarryState.EMPTY) return null;
-
         const item       = this._heldItem;
         this._heldItem   = null;
         this._carryState = CarryState.EMPTY;
-
-        EventBus.emit('player:drop', {
-            playerId: this.playerId,
-            item:     item ? item.name : null,
-        });
-
+        EventBus.emit('player:drop', { playerId: this.playerId, item: item ? item.name : null });
         return item;
     },
 
-    // ─────────────────────────────────────────────
-    //  Getter
-    // ─────────────────────────────────────────────
+    // ── 網路同步（遠端玩家）──────────────────────────────
 
-    get col()           { return this._col;           },
-    get row()           { return this._row;           },
-    get facing()        { return this._facing;        },
-    get movementState() { return this._movementState; },
-    get carryState()    { return this._carryState;    },
-    get heldItem()      { return this._heldItem;      },
-    isCarrying()        { return this._carryState === CarryState.HOLDING; },
+    applyNetworkState(x, y, facingName) {
+        for (const key in Direction) {
+            if (Direction[key].name === facingName) {
+                this._facing = Direction[key];
+                break;
+            }
+        }
+        cc.tween(this.node)
+            .to(0.08, { x, y })
+            .call(() => { this._px = this.node.x; this._py = this.node.y; })
+            .start();
+    },
+
+    // ── Getter（用一般方法，避免 cc.Class getter 報錯）───
+
+    facing()        { return this._facing;        },
+    movementState() { return this._isMoving ? 'moving' : 'idle'; },
+    carryState()    { return this._carryState;    },
+    heldItem()      { return this._heldItem;      },
+    isMoving()      { return this._isMoving;      },
+    isCarrying()    { return this._carryState === CarryState.HOLDING; },
 });
 
 module.exports = PlayerController;

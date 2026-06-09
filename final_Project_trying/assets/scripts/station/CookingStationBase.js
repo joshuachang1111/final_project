@@ -1,75 +1,55 @@
-/**
- * CookingStationBase  (extends StationBase)
- * Stove 和 CuttingBoard 的共用邏輯。
- *
- * 流程：
- *   1. 玩家放上食材 (_onPlace)  → 開始倒數
- *   2. 倒數中           → 不能放、不能拿
- *   3. 時間到           → emit station:cook_done，node 名稱加上 resultPrefix
- *   4. 完成後           → 玩家可空手來拿 (_onPickup)
- *
- * 子類別需設定：
- *   this.cookTime     — 烹飪秒數（Inspector）
- *   this.resultPrefix — 完成品前綴，例如 'cooked_' 或 'chopped_'
- *
- * EventBus：
- *   emit  station:cook_done  { stationType, col, row, result }
- *   繼承  station:pickup / station:place
- */
-
 const StationBase = require('./StationBase');
 const EventBus    = require('../core/EventBus');
+
+const COOK_RESULTS = {
+    STOVE: {
+        raw_meat: 'meat',
+    },
+    CUTTING_BOARD: {
+        tomato: 'tomato_sliced',
+        onion:  'onion_sliced',
+    },
+};
 
 const CookingStationBase = cc.Class({
     extends: StationBase,
 
     properties: {
-        /** 烹飪所需秒數 */
         cookTime: {
             default: 5,
             type: cc.Integer,
-            tooltip: '烹飪倒數秒數',
-        },
-        /** 完成品名稱前綴，子類別設定預設值 */
-        resultPrefix: {
-            default: 'cooked_',
-            tooltip: '完成品名稱前綴，例如 cooked_ 或 chopped_',
+            tooltip: 'Seconds needed to process this ingredient',
         },
     },
-
-    // ─────────────────────────────────────────────
-    //  生命週期
-    // ─────────────────────────────────────────────
 
     onLoad() {
-        this._super();          // 呼叫 StationBase.onLoad()
-        this._cooking  = false; // 是否正在烹飪
-        this._isDone   = false; // 是否已完成（等待拿取）
+        this._super();
+        this._cooking     = false;
+        this._isDone      = false;
+        this._cookResult  = null;
+        this._cookEndTime = 0;
+        this._timerLabel  = null;
     },
 
-    // ─────────────────────────────────────────────
-    //  override
-    // ─────────────────────────────────────────────
+    onDestroy() {
+        this.unscheduleAllCallbacks();
+        this._super();
+    },
 
-    /** 放上食材 → 開始烹飪 */
     _onPlace(player) {
-        if (this._cooking || this._isDone) {
-            cc.log('[CookingStation] 正在烹飪或已完成，不能放置');
-            return;
-        }
-        if (this._heldItem) {
-            cc.log('[CookingStation] 站台上已有物品');
+        if (this._cooking || this._isDone || this._heldItem) {
+            cc.log('[CookingStation] Station is busy.');
             return;
         }
 
-        // 從玩家手上拿走食材，放到站台上
-        const item     = player.dropItem();
+        const item = player.dropItem();
         this._heldItem = item;
 
         if (item) {
             item.parent = this.node;
             item.x = 0;
-            item.y = 0;
+            item.y = this.itemOffsetY;
+            this._setItemDisplayOnStation(item);
         }
 
         EventBus.emit('station:place', {
@@ -79,26 +59,36 @@ const CookingStationBase = cc.Class({
             item:        item ? item.name : null,
         });
 
-        cc.log('[CookingStation] 開始烹飪:', item ? item.name : 'null', '需要', this.cookTime, '秒');
+        this._cookResult = item ? this._getCookResult(item.name) : null;
+        if (!this._cookResult) {
+            cc.log('[CookingStation] Item cannot be processed here:', item ? item.name : null);
+            return;
+        }
+
+        cc.log('[CookingStation] Start processing:', item.name, '->', this._cookResult);
         this._cooking = true;
+        this._cookEndTime = this._nowSeconds() + this.cookTime;
+        this._showTimerLabel(this.cookTime);
+        this.schedule(this._updateTimerLabel, 0.1);
         this.scheduleOnce(this._onCookDone, this.cookTime);
     },
 
-    /** 拿取：只有烹飪完成後才能拿 */
     _onPickup(player) {
         if (this._cooking) {
-            cc.log('[CookingStation] 還在烹飪，請等待');
-            return;
-        }
-        if (!this._isDone || !this._heldItem) {
-            cc.log('[CookingStation] 沒有完成品可以拿');
+            cc.log('[CookingStation] Still processing.');
             return;
         }
 
-        // 完成品交給玩家
+        if (!this._heldItem) {
+            cc.log('[CookingStation] Nothing to pick up.');
+            return;
+        }
+
         player.pickUp(this._heldItem);
         this._heldItem = null;
-        this._isDone   = false;
+        this._isDone = false;
+        this._cookResult = null;
+        this._hideTimerLabel();
 
         EventBus.emit('station:pickup', {
             stationType: this.stationType,
@@ -107,28 +97,84 @@ const CookingStationBase = cc.Class({
         });
     },
 
-    // ─────────────────────────────────────────────
-    //  內部
-    // ─────────────────────────────────────────────
-
     _onCookDone() {
-        if (!this._heldItem) return;
+        this.unschedule(this._updateTimerLabel);
+        this._hideTimerLabel();
 
-        // 把 node 名稱改成完成品名稱
-        const resultName      = this.resultPrefix + this._heldItem.name;
-        this._heldItem.name   = resultName;
+        if (!this._heldItem || !this._cookResult) {
+            this._cooking = false;
+            return;
+        }
+
+        this._heldItem.name = this._cookResult;
+        this._setItemSpriteFrame(this._heldItem, this._heldItem.name);
 
         this._cooking = false;
         this._isDone  = true;
 
-        cc.log('[CookingStation] 烹飪完成:', resultName);
+        cc.log('[CookingStation] Processing done:', this._heldItem.name);
 
         EventBus.emit('station:cook_done', {
             stationType: this.stationType,
             col:         this.gridCol,
             row:         this.gridRow,
-            result:      resultName,
+            result:      this._heldItem.name,
         });
+    },
+
+    _getCookResult(itemName) {
+        const stationRecipes = COOK_RESULTS[this.stationType];
+        if (!stationRecipes) return null;
+
+        const normalizedName = String(itemName || '').replace(/^noncooked_/, '');
+        return stationRecipes[normalizedName] || null;
+    },
+
+    _nowSeconds() {
+        if (cc.director && cc.director.getTotalTime) {
+            return cc.director.getTotalTime() / 1000;
+        }
+        return Date.now() / 1000;
+    },
+
+    _ensureTimerLabel() {
+        if (this._timerLabel && cc.isValid(this._timerLabel.node)) return this._timerLabel;
+
+        const labelNode = new cc.Node('CookTimerLabel');
+        labelNode.parent = this.node;
+        labelNode.x = 0;
+        labelNode.y = this.itemOffsetY + 45;
+        labelNode.scale = 1 / (this.node.scale || 1);
+
+        const label = labelNode.addComponent(cc.Label);
+        label.fontSize = 22;
+        label.lineHeight = 24;
+        label.horizontalAlign = cc.Label.HorizontalAlign.CENTER;
+        label.verticalAlign = cc.Label.VerticalAlign.CENTER;
+        label.string = '';
+
+        this._timerLabel = label;
+        return label;
+    },
+
+    _showTimerLabel(secondsLeft) {
+        const label = this._ensureTimerLabel();
+        label.node.active = true;
+        label.string = String(Math.max(1, Math.ceil(secondsLeft)));
+    },
+
+    _updateTimerLabel() {
+        if (!this._cooking) return;
+
+        const secondsLeft = this._cookEndTime - this._nowSeconds();
+        this._showTimerLabel(secondsLeft);
+    },
+
+    _hideTimerLabel() {
+        this.unschedule(this._updateTimerLabel);
+        if (this._timerLabel && cc.isValid(this._timerLabel.node)) {
+            this._timerLabel.node.active = false;
+        }
     },
 });
 

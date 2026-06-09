@@ -1,0 +1,38 @@
+{
+  "ver": "2.3.7",
+  "uuid": "1f1c4718-1382-423d-9c8f-19bb578afa7f",
+  "importer": "texture",
+  "type": "sprite",
+  "wrapMode": "clamp",
+  "filterMode": "bilinear",
+  "premultiplyAlpha": false,
+  "genMipmaps": false,
+  "packable": true,
+  "width": 1254,
+  "height": 1254,
+  "platformSettings": {},
+  "subMetas": {
+    "foodbox_chocolate": {
+      "ver": "1.0.6",
+      "uuid": "5527eb01-ef23-428e-a43e-22d1fc5b51b6",
+      "importer": "sprite-frame",
+      "rawTextureUuid": "1f1c4718-1382-423d-9c8f-19bb578afa7f",
+      "trimType": "auto",
+      "trimThreshold": 1,
+      "rotated": false,
+      "offsetX": 27.5,
+      "offsetY": 22,
+      "trimX": 183,
+      "trimY": 162,
+      "width": 943,
+      "height": 886,
+      "rawWidth": 1254,
+      "rawHeight": 1254,
+      "borderTop": 0,
+      "borderBottom": 0,
+      "borderLeft": 0,
+      "borderRight": 0,
+      "subMetas": {}
+    }
+  }
+}

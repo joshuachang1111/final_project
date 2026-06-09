@@ -1,0 +1,38 @@
+{
+  "ver": "2.3.7",
+  "uuid": "ab2d1a98-7821-409d-b353-66e0d03e51bb",
+  "importer": "texture",
+  "type": "sprite",
+  "wrapMode": "clamp",
+  "filterMode": "bilinear",
+  "premultiplyAlpha": false,
+  "genMipmaps": false,
+  "packable": true,
+  "width": 1254,
+  "height": 1254,
+  "platformSettings": {},
+  "subMetas": {
+    "foodbox_Blacktea": {
+      "ver": "1.0.6",
+      "uuid": "f80a4c5f-a65b-47d2-bdb2-664394a17d04",
+      "importer": "sprite-frame",
+      "rawTextureUuid": "ab2d1a98-7821-409d-b353-66e0d03e51bb",
+      "trimType": "auto",
+      "trimThreshold": 1,
+      "rotated": false,
+      "offsetX": -22.5,
+      "offsetY": -20,
+      "trimX": 193,
+      "trimY": 259,
+      "width": 823,
+      "height": 776,
+      "rawWidth": 1254,
+      "rawHeight": 1254,
+      "borderTop": 0,
+      "borderBottom": 0,
+      "borderLeft": 0,
+      "borderRight": 0,
+      "subMetas": {}
+    }
+  }
+}
