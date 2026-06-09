@@ -19,6 +19,24 @@ const ITEM_SPRITE_UUIDS = {
     tomato_sliced:      '9dfac34e-7be9-439a-ae7b-801f8490c8f3',
 };
 
+// 把 spriteFrame 套到 itemNode，並把 itemNode 的 content size 設成 spriteFrame 的原始大小。
+//
+// 為什麼要顯式設 size：呼叫端（FoodBox._onPickup）會在 applySpriteFrame() 之後立刻
+// 鎖 sprite.sizeMode = CUSTOM。但此函式是非同步（assetManager.loadAny callback），
+// 等 callback 把 spriteFrame 塞進來時 sizeMode 已經 CUSTOM 了，node 就不會 auto-resize
+// 到 spriteFrame 原始尺寸 → 整顆停在初始的 100×100，再 × foodScale (0.5) = 50×50 變超小。
+// 解法：callback 內順手用 spriteFrame.getRect() 把 node 大小撐到原始尺寸，等同
+// 還原 sizeMode=TRIMMED 時的 auto-resize 行為。
+function _applyFrame(itemNode, sprite, frame) {
+    if (!cc.isValid(itemNode) || !frame) return;
+    sprite.spriteFrame = frame;
+    const rect = (typeof frame.getRect === 'function') ? frame.getRect() : null;
+    if (rect && rect.width > 0 && rect.height > 0) {
+        itemNode.width  = rect.width;
+        itemNode.height = rect.height;
+    }
+}
+
 function applySpriteFrame(itemNode, itemName, fallbackFrame) {
     if (!itemNode) return;
 
@@ -27,17 +45,17 @@ function applySpriteFrame(itemNode, itemName, fallbackFrame) {
 
     const uuid = ITEM_SPRITE_UUIDS[itemName];
     if (!uuid || !cc.assetManager || !cc.assetManager.loadAny) {
-        if (fallbackFrame) sprite.spriteFrame = fallbackFrame;
+        _applyFrame(itemNode, sprite, fallbackFrame);
         return;
     }
 
     cc.assetManager.loadAny({ uuid }, (err, asset) => {
         if (err || !asset || !cc.isValid(itemNode)) {
-            if (fallbackFrame && cc.isValid(itemNode)) sprite.spriteFrame = fallbackFrame;
+            _applyFrame(itemNode, sprite, fallbackFrame);
             if (err) cc.warn('[ItemSpriteRegistry] 圖片載入失敗:', itemName, err);
             return;
         }
-        sprite.spriteFrame = asset;
+        _applyFrame(itemNode, sprite, asset);
     });
 }
 

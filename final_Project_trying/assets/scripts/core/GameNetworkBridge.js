@@ -93,6 +93,18 @@ cc.Class({
             cc.log('[GameNetworkBridge] ✓ 兩人都已進場，顯示關卡說明');
             // 通知 GuideOverlay 顯示（不直接呼叫 startGame，等 Host 長按空白鍵）
             EventBus.emit('game:ready');
+
+            // Fallback：若 1 秒內沒有 GuideOverlay 接管讓 GameManager 進入 PLAYING，
+            // 就直接開局。處理 game.fire 還沒掛 GuideOverlay 節點 / 圖片資源缺失的情況，
+            // 避免 game:ready 沒人接的時候卡死無法開始遊戲。
+            // 隊友把 scene + 圖補上後，guide 會在 1s 內讓 phase 轉成 PLAYING，
+            // 這條 fallback 自動失效，不需手動移除。
+            this.scheduleOnce(() => {
+                if (GameManager.instance && GameManager.instance.phase !== GameManager.Phase.PLAYING) {
+                    cc.warn('[GameNetworkBridge] guide 超時（1s 沒人完成），fallback 直接 startGame');
+                    GameManager.instance.startGame();
+                }
+            }, 1.0);
         } else {
             cc.log('[GameNetworkBridge] 還在等待對方... _localReady=', this._localReady, '_remoteReady=', this._remoteReady);
         }
@@ -274,23 +286,22 @@ cc.Class({
 
     _applyRemoteTickSync(data) {
         // Guest 接收 Host 廣播的計時器，強制同步本地計時器
-        cc.log('[GameNetworkBridge] 收到計時器同步，role=', this._role, 'data=', data);
-
-        if (this._role === 'host') {
-            cc.log('[GameNetworkBridge] Host 忽略自己的計時器廣播');
-            return;  // Host 不需要接收自己的廣播
-        }
-
+        if (this._role === 'host') return;  // Host 不接收自己的廣播
         if (!GameManager.instance) return;
         if (typeof data.timeLeft !== 'number') {
             cc.error('[GameNetworkBridge] 計時器數據無效:', data.timeLeft);
             return;
         }
 
-        // 每次都強制同步，確保兩人計時器完全一致
-        cc.log('[GameNetworkBridge] Guest 計時器同步:', data.timeLeft);
-        GameManager.instance._timeLeft = data.timeLeft;
-        EventBus.emit('game:tick', { timeLeft: data.timeLeft });
+        const gm = GameManager.instance;
+
+        // 把 _startTime 反算對齊 Host 廣播的 timeLeft，這樣本地 _tick 的 wall-clock 計算
+        // 會跟 Host 同步；視窗最小化恢復後，_tick 自動補上錯過的秒數。
+        // 公式：_startTime = now - elapsed * 1000，其中 elapsed = totalTime - timeLeft
+        gm._startTime = Date.now() - (gm.totalTime - data.timeLeft) * 1000;
+        gm._timeLeft  = data.timeLeft;
+
+        EventBus.emit('game:tick', { timeLeft: Math.max(0, Math.ceil(data.timeLeft)) });
     },
 
     _applyRemoteScoreSync(data) {

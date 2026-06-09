@@ -1,14 +1,15 @@
-const EventBus = require('../core/EventBus');
+const EventBus    = require('../core/EventBus');
+const GameManager = require('../core/GameManager');
 
 // ── 圖片名稱對照表 ──────────────────────────────────────────
 const RECIPE_TO_IMAGE = {
-    'burger':            'order1',
-    'chocolate_toast':   'order2',
-    'black_tea':         'order3',
-    'burger_tea':        'order4',
-    'toast_tea':         'order5',
-    'burger_toast':      'order6',
-    'full_meal':         'order7'
+    'burger_tea':           'order1',
+    'toast_tea':            'order2',
+    'burger_toast':         'order3',
+    'burger':               'order4',
+    'chocolate_toast':      'order5',
+    'black_tea':            'order6',
+    'full_meal':            'order7'
 };
 // ─────────────────────────────────────────────────────────
 
@@ -58,7 +59,10 @@ cc.Class({
         orderNode.parent = this.node; 
 
         orderNode.timeLeft = data.timeLeft;
-        orderNode.maxTime = data.timeLeft;
+        orderNode.maxTime  = data.timeLeft;
+        // 記下加入瞬間 GameManager 的 elapsed，update 用 wall-clock 反算 timeLeft，
+        // 視窗最小化恢復後 UI 倒數會跟主時間器一起補回錯過的秒數。
+        orderNode.spawnElapsed = GameManager.instance ? GameManager.instance.elapsed : null;
 
         // 2. 動態建立「食物圖片」
         const foodNode = new cc.Node('FoodIcon');
@@ -132,27 +136,30 @@ cc.Class({
     // ── 🔄 每幀自動更新時間條 ──────────────────────────────────
     update(dt) {
         if (!this.node || this.node.childrenCount === 0) return;
+        const currentElapsed = GameManager.instance ? GameManager.instance.elapsed : null;
 
         this.node.children.forEach(orderNode => {
             if (orderNode && orderNode.timeLeft !== undefined && orderNode.timeBarCtx) {
-                orderNode.timeLeft -= dt;
-                if (orderNode.timeLeft < 0) orderNode.timeLeft = 0;
+                if (typeof orderNode.spawnElapsed === 'number' && currentElapsed !== null) {
+                    // Wall-clock based：用 GameManager.elapsed 算，視窗最小化恢復會自動補回
+                    orderNode.timeLeft = Math.max(0, orderNode.maxTime - (currentElapsed - orderNode.spawnElapsed));
+                } else {
+                    // Fallback：相容沒有 spawnElapsed 的舊節點
+                    orderNode.timeLeft -= dt;
+                    if (orderNode.timeLeft < 0) orderNode.timeLeft = 0;
+                }
 
-                // --- 核心修改：直接更新 label ---
                 if (orderNode.timeLabel) {
                     orderNode.timeLabel.string = Math.ceil(orderNode.timeLeft) + 's';
                 }
 
-                const ratio = orderNode.timeLeft / orderNode.maxTime;
-
-                // 畫大時間條（寬度、高度32、由右向左減少）
+                const ratio = orderNode.maxTime > 0 ? orderNode.timeLeft / orderNode.maxTime : 0;
                 this._drawProgressBar(orderNode.timeBarCtx, orderNode.barWidth, orderNode.barHeight, ratio);
             }
 
-            // 畫完進度條後，立即通知 HUD 更新數字
-            EventBus.emit('hud:order_tick', { 
-                id: orderNode.name.replace('order_', ''), 
-                timeLeft: orderNode.timeLeft 
+            EventBus.emit('hud:order_tick', {
+                id: orderNode.name.replace('order_', ''),
+                timeLeft: orderNode.timeLeft,
             });
         });
     },
@@ -161,8 +168,9 @@ cc.Class({
         if (!this.node) return;
         const orderNode = this.node.getChildByName('order_' + data.id);
         if (orderNode) {
-            cc.log('[OrderUIHandler] 移除訂單 UI，ID:', data.id);
-            orderNode.removeFromParent(); 
+            const visualTimeLeft = typeof orderNode.timeLeft === 'number' ? orderNode.timeLeft.toFixed(2) : '?';
+            cc.log('[OrderUI-Remove] id=', data.id, '視覺 timeLeft=', visualTimeLeft);
+            orderNode.removeFromParent();
             orderNode.destroy();
 
             const layout = this.node.getComponent(cc.Layout);

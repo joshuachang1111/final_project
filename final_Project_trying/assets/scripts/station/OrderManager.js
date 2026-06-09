@@ -109,17 +109,28 @@ const OrderManager = cc.Class({
     // 兩邊都會跑：
     //   Host: 倒數 → 到 0 emit expired + 廣播
     //   Guest: 倒數 → 到 0 只 clamp，不 emit，不廣播（讓 Host 主導 expire）
+    //
+    // 計時改用 GameManager.elapsed (wall-clock 已扣掉 pause)，視窗最小化恢復後
+    // 訂單剩餘時間自動補上錯過的秒數，跟主時間器一致。
     update(dt) {
         if (!this._started || !this._orders.length) return;
+        if (!GameManager.instance) return;
+        const currentElapsed = GameManager.instance.elapsed;
 
         for (let i = this._orders.length - 1; i >= 0; i--) {
             const order = this._orders[i];
-            order.timeLeft -= dt;
+            if (typeof order.spawnElapsed === 'number' && typeof order.timeLimit === 'number') {
+                order.timeLeft = Math.max(0, order.timeLimit - (currentElapsed - order.spawnElapsed));
+            } else {
+                // Fallback：沒有 spawnElapsed 的舊訂單
+                order.timeLeft -= dt;
+                if (order.timeLeft < 0) order.timeLeft = 0;
+            }
 
             if (order.timeLeft <= 0) {
                 if (this._isHost) {
                     this._orders.splice(i, 1);
-                    cc.log('[OrderManager] Host 訂單過期 id=', order.id, 'recipe=', order.recipe);
+                    cc.log('[OrderRemove] path=UPDATE-EXPIRE id=', order.id, 'recipe=', order.recipe, 'timeLeft=', order.timeLeft.toFixed(2));
                     EventBus.emit('order:expired', { id: order.id, recipe: order.recipe });
                     if (window._nm) {
                         window._nm.sendGameEvent(EV_ORDER, {
@@ -140,28 +151,33 @@ const OrderManager = cc.Class({
         if (this._orders.length >= MAX_ACTIVE_ORDERS) return;
 
         const tmpl = RECIPES[Math.floor(Math.random() * RECIPES.length)];
+        const spawnElapsed = GameManager.instance ? GameManager.instance.elapsed : 0;
         const order = {
-            id:       this._nextId++,
-            recipe:   tmpl.recipe,
-            timeLeft: tmpl.timeLimit,
-            reward:   tmpl.reward,
+            id:           this._nextId++,
+            recipe:       tmpl.recipe,
+            timeLimit:    tmpl.timeLimit,
+            spawnElapsed: spawnElapsed,
+            timeLeft:     tmpl.timeLimit,
+            reward:       tmpl.reward,
         };
 
         this._orders.push(order);
 
         EventBus.emit('order:added', {
-            id:       order.id,
-            recipe:   order.recipe,
-            timeLeft: order.timeLeft,
+            id:        order.id,
+            recipe:    order.recipe,
+            timeLeft:  order.timeLeft,
+            timeLimit: order.timeLimit,
         });
 
         if (window._nm) {
             window._nm.sendGameEvent(EV_ORDER, {
-                action:   'added',
-                id:       order.id,
-                recipe:   order.recipe,
-                timeLeft: order.timeLeft,
-                reward:   order.reward,
+                action:    'added',
+                id:        order.id,
+                recipe:    order.recipe,
+                timeLeft:  order.timeLeft,
+                timeLimit: order.timeLimit,
+                reward:    order.reward,
             });
         }
     },
@@ -173,23 +189,34 @@ const OrderManager = cc.Class({
         const data = msg.data;
         if (data.action === 'added') {
             if (this._orders.some(o => o.id === data.id)) return;
+            // 反算 spawnElapsed 對齊 Host 的時間軸：
+            // timeLimit - (currentElapsed - spawnElapsed) = data.timeLeft
+            // → spawnElapsed = currentElapsed - (timeLimit - data.timeLeft)
+            const timeLimit = data.timeLimit || data.timeLeft;
+            const currentElapsed = GameManager.instance ? GameManager.instance.elapsed : 0;
+            const spawnElapsed = currentElapsed - (timeLimit - data.timeLeft);
+
             const order = {
-                id:       data.id,
-                recipe:   data.recipe,
-                timeLeft: data.timeLeft,
-                reward:   data.reward || 100,
+                id:           data.id,
+                recipe:       data.recipe,
+                timeLimit:    timeLimit,
+                spawnElapsed: spawnElapsed,
+                timeLeft:     data.timeLeft,
+                reward:       data.reward || 100,
             };
             this._orders.push(order);
             EventBus.emit('order:added', {
-                id:       order.id,
-                recipe:   order.recipe,
-                timeLeft: order.timeLeft,
+                id:        order.id,
+                recipe:    order.recipe,
+                timeLeft:  order.timeLeft,
+                timeLimit: order.timeLimit,
             });
         } else if (data.action === 'expired') {
             const idx = this._orders.findIndex(o => o.id === data.id);
             if (idx === -1) return;
             const order = this._orders[idx];
             this._orders.splice(idx, 1);
+            cc.log('[OrderRemove] path=NET-EXPIRED-FROM-HOST id=', order.id, 'recipe=', order.recipe, 'timeLeft=', order.timeLeft.toFixed(2));
             EventBus.emit('order:expired', { id: order.id, recipe: order.recipe });
         }
     },
@@ -215,7 +242,7 @@ const OrderManager = cc.Class({
 
         // 移除第一筆（不扣分）
         const order = this._orders.shift();
-        cc.log('[OrderManager] 二退：移除訂單 id=', order.id, 'recipe=', order.recipe);
+        cc.log('[OrderRemove] path=SKILL_2-REFRESH id=', order.id, 'recipe=', order.recipe, 'timeLeft=', order.timeLeft.toFixed(2));
         EventBus.emit('order:expired', { id: order.id, recipe: order.recipe });
         if (window._nm) {
             window._nm.sendGameEvent(EV_ORDER, { action: 'expired', id: order.id });
@@ -233,6 +260,7 @@ const OrderManager = cc.Class({
         const order = this._orders[idx];
         this._orders.splice(idx, 1);
 
+        cc.log('[OrderRemove] path=LOCAL-SERVE id=', order.id, 'recipe=', order.recipe, 'timeLeft=', order.timeLeft.toFixed(2));
         EventBus.emit('order:completed', {
             id:     order.id,
             recipe: order.recipe,
@@ -251,6 +279,7 @@ const OrderManager = cc.Class({
         if (idx === -1) return { id, reward: 0, found: false };
         const order = this._orders[idx];
         this._orders.splice(idx, 1);
+        cc.log('[OrderRemove] path=REMOTE-SERVE-BY-ID id=', order.id, 'recipe=', order.recipe, 'timeLeft=', order.timeLeft.toFixed(2));
         return { id: order.id, reward: order.reward || 100, found: true };
     },
 
@@ -260,6 +289,7 @@ const OrderManager = cc.Class({
         if (idx === -1) return { id: -1, reward: 0 };
         const order = this._orders[idx];
         this._orders.splice(idx, 1);
+        cc.log('[OrderRemove] path=REMOTE-SERVE-BY-RECIPE id=', order.id, 'recipe=', order.recipe, 'timeLeft=', order.timeLeft.toFixed(2));
         return { id: order.id, reward: order.reward || 100 };
     },
 

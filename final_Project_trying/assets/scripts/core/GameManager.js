@@ -50,18 +50,39 @@ const GameManager = cc.Class({
         this._phase    = Phase.LOBBY;
         this._score    = 0;
         this._timeLeft = this.totalTime;
+        this._startTime  = null;  // wall-clock 起始時間（startGame 設定）
+        this._pauseStart = null;  // 暫停起點（game:pause 設定）
 
         // stationId ("col,row") → StationBase component
         this._stations = {};
 
         // playerId (number) → PlayerController component
         this._players = {};
+
+        // 監聽暫停/恢復：把暫停時間從 wall-clock elapsed 扣回去，避免
+        // wall-clock 計時把 cc.director.pause() 期間誤算成有跑
+        EventBus.on('game:pause',  this._onGamePause,  this);
+        EventBus.on('game:resume', this._onGameResume, this);
     },
 
     onDestroy() {
+        EventBus.off('game:pause',  this._onGamePause);
+        EventBus.off('game:resume', this._onGameResume);
         if (GameManager.instance === this) {
             GameManager.instance = null;
         }
+    },
+
+    _onGamePause() {
+        this._pauseStart = Date.now();
+    },
+
+    _onGameResume() {
+        if (typeof this._pauseStart === 'number' && typeof this._startTime === 'number') {
+            // 暫停整段時間往前推 _startTime，等同把這段 wall-clock 從 elapsed 扣掉
+            this._startTime += Date.now() - this._pauseStart;
+        }
+        this._pauseStart = null;
     },
 
     // ─────────────────────────────────────────────
@@ -70,9 +91,11 @@ const GameManager = cc.Class({
 
     /** 開始一局遊戲 */
     startGame() {
-        this._score    = 0;
-        this._timeLeft = this.totalTime;
-        this._phase    = Phase.PLAYING;
+        this._score     = 0;
+        this._timeLeft  = this.totalTime;
+        this._startTime = Date.now();   // wall-clock 基準點，_tick 拿來算 elapsed
+        this._pauseStart = null;
+        this._phase     = Phase.PLAYING;
 
         // 若玩家未選技能，預設給熊貓技能
         if (!window._selectedSkill) window._selectedSkill = 'skill_1';
@@ -124,6 +147,15 @@ const GameManager = cc.Class({
     get score()    { return this._score;    },
     get timeLeft() { return this._timeLeft; },
 
+    // 從 startGame 到現在「實際遊戲時間」（已扣掉暫停期間）的秒數。
+    // 給訂單倒數共用，這樣訂單也吃同一條 wall-clock + pause 處理。
+    get elapsed() {
+        if (typeof this._startTime !== 'number') return 0;
+        // 暫停中：時間凍結在 _pauseStart
+        const endMs = typeof this._pauseStart === 'number' ? this._pauseStart : Date.now();
+        return Math.max(0, (endMs - this._startTime) / 1000);
+    },
+
     // ─────────────────────────────────────────────
     //  內部
     // ─────────────────────────────────────────────
@@ -131,12 +163,25 @@ const GameManager = cc.Class({
     _tick() {
         if (this._phase !== Phase.PLAYING) return;
 
-        this._timeLeft -= 1;
-        EventBus.emit('game:tick', { timeLeft: this._timeLeft });
+        // Wall-clock based：用 Date.now() 算 elapsed，不是每 tick -= 1。
+        // 視窗最小化時 Cocos schedule 會暫停（_tick 不跑），但 Date.now() 還在走，
+        // 視窗一恢復、_tick 第一次再被叫到，就自動把錯過的秒數補上。
+        // 暫停（cc.director.pause）期間有 _pauseStart 紀錄，game:resume 已把 _startTime
+        // 往前推扣掉，這裡不用特別處理。
+        if (typeof this._startTime === 'number') {
+            const elapsed = (Date.now() - this._startTime) / 1000;
+            this._timeLeft = Math.max(0, this.totalTime - elapsed);
+        } else {
+            // Fallback：相容沒呼叫 startGame 就跑 _tick 的舊路徑
+            this._timeLeft -= 1;
+        }
 
-        // 每 10 秒輸出一次日誌
-        if (this._timeLeft % 10 === 0) {
-            cc.log('[GameManager] _tick: timeLeft=', this._timeLeft);
+        // HUD / 廣播都用 ceil 過的整數，否則 "2:59.5" 之類醜值會出現
+        const displayed = Math.max(0, Math.ceil(this._timeLeft));
+        EventBus.emit('game:tick', { timeLeft: displayed });
+
+        if (displayed % 10 === 0) {
+            cc.log('[GameManager] _tick: timeLeft=', displayed);
         }
 
         if (this._timeLeft <= 0) {
