@@ -110,14 +110,16 @@ const LeaderboardManager = {
                 cc.log('[LeaderboardManager] 查詢完成，文件數=', snapshot.size);
 
                 const leaderboard = [];
-                snapshot.forEach((doc, index) => {
+                let rank = 0;
+                snapshot.forEach((doc) => {
+                    rank++;
                     const data = doc.data();
-                    cc.log('[LeaderboardManager] 文件', index, ':', data);
+                    cc.log('[LeaderboardManager] 排名', rank, ':', data);
                     cc.log('[LeaderboardManager] score 類型=', typeof data.score, '值=', data.score);
                     leaderboard.push({
-                        rank: index + 1,
+                        rank: rank,
                         name: data.name || '訪客',
-                        score: data.score || 0,  // 分數無效時預設為 0
+                        score: (typeof data.score === 'number') ? data.score : 0,
                         level: data.level || 'unknown',
                     });
                 });

@@ -1,5 +1,6 @@
 const EventBus    = require('./EventBus');
 const GameManager = require('./GameManager');
+const ItemSprites = require('../station/ItemSpriteRegistry');
 
 // ── Photon event codes ────────────────────────────────────
 const EV_MOVE       = 10;   // 玩家移動
@@ -352,16 +353,15 @@ cc.Class({
                     // spriteFrame（讓 node 自動 resize 到 sprite 原始尺寸），最後鎖
                     // sizeMode = CUSTOM。如果先鎖 CUSTOM 再 setSpriteFrame，node 維持
                     // 在 100x100 不會 resize，乘上 foodScale (0.07) 之後變超小看不到。
-                    const itemNode = new cc.Node(data.item || 'noncooked_food');
+                    const itemNode = new cc.Node(data.item || 'food');
                     itemNode.width  = 100;
                     itemNode.height = 100;
                     if (typeof station.foodScale === 'number') {
                         itemNode.setScale(station.foodScale);
+                        itemNode._carryScale = station.foodScale;
                     }
                     const sprite = itemNode.addComponent(cc.Sprite);
-                    if (station.foodSpriteFrame) {
-                        sprite.spriteFrame = station.foodSpriteFrame;
-                    }
+                    ItemSprites.applySpriteFrame(itemNode, itemNode.name, station.foodSpriteFrame);
                     sprite.sizeMode = cc.Sprite.SizeMode.CUSTOM;
                     remote.pickUp(itemNode);
                 } else {

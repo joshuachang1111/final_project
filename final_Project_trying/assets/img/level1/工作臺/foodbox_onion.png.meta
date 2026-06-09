@@ -1,0 +1,38 @@
+{
+  "ver": "2.3.7",
+  "uuid": "b45126d8-f38e-40a1-9cd9-5758bf580e0b",
+  "importer": "texture",
+  "type": "sprite",
+  "wrapMode": "clamp",
+  "filterMode": "bilinear",
+  "premultiplyAlpha": false,
+  "genMipmaps": false,
+  "packable": true,
+  "width": 1254,
+  "height": 1254,
+  "platformSettings": {},
+  "subMetas": {
+    "foodbox_onion": {
+      "ver": "1.0.6",
+      "uuid": "63427571-d560-46ac-b1a0-1dbd90b8b3d5",
+      "importer": "sprite-frame",
+      "rawTextureUuid": "b45126d8-f38e-40a1-9cd9-5758bf580e0b",
+      "trimType": "auto",
+      "trimThreshold": 1,
+      "rotated": false,
+      "offsetX": -9,
+      "offsetY": -2.5,
+      "trimX": 171,
+      "trimY": 209,
+      "width": 894,
+      "height": 841,
+      "rawWidth": 1254,
+      "rawHeight": 1254,
+      "borderTop": 0,
+      "borderBottom": 0,
+      "borderLeft": 0,
+      "borderRight": 0,
+      "subMetas": {}
+    }
+  }
+}

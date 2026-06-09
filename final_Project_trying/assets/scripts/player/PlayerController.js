@@ -374,6 +374,7 @@ const PlayerController = cc.Class({
         itemNode.parent  = this.node;
         itemNode.x       = 0;
         itemNode.y       = GridSystem.CELL_H * 0.6;
+        itemNode.scale   = (typeof itemNode._carryScale === 'number') ? itemNode._carryScale : (itemNode.scale || 1);
         EventBus.emit('player:pickup', { playerId: this.playerId, item: itemNode.name });
     },
 

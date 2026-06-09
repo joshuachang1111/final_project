@@ -91,20 +91,28 @@ cc.Class({
             cc.log('[LeaderboardSceneManager] 生成', leaderboard.length, '項排行榜');
             leaderboard.forEach((item, index) => {
                 const itemNode = new cc.Node(`rank_${item.rank}`);
-                itemNode.height = 40;
+                itemNode.height = 50;
 
                 const label = itemNode.addComponent(cc.Label);
                 // 確保分數是有效的數字，否則顯示 0
                 const score = (typeof item.score === 'number' && item.score >= 0) ? item.score : 0;
-                label.string = `${item.rank}. ${item.name} ── ${item.level} ── ${score}分`;
-                label.fontSize = 16;
-                label.lineHeight = 40;
+
+                // 簡化格式：排名. 玩家名 - 難度 - 分數
+                label.string = `${item.rank}. ${item.name}  -  ${item.level}  -  ${score}分`;
+                label.fontSize = 18;
+                label.lineHeight = 50;
+                label.horizontalAlign = cc.Label.HorizontalAlign.LEFT;
+
+                // 設定字體顏色為黑色
+                itemNode.color = cc.color(0, 0, 0, 255);
 
                 itemNode.parent = this.leaderboardContent;
-                itemNode.y = -(index * 45 + 20);
+                // 頂部留 60px 的空間，避免被卷周切掉
+                itemNode.y = -(index * 55 + 60);
             });
 
-            const contentHeight = Math.max(leaderboard.length * 45 + 40, 300);
+            // 增加頂部 padding，總高度 = 60 + 每項高度
+            const contentHeight = Math.max(60 + leaderboard.length * 55 + 40, 400);
             this.leaderboardContent.height = contentHeight;
 
             cc.log('[LeaderboardSceneManager] 排行榜加載完成');
