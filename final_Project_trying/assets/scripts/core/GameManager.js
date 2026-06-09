@@ -149,13 +149,15 @@ const GameManager = cc.Class({
         this.unschedule(this._tick);
         this._phase = Phase.RESULT;
         GridSystem.reset();
-        // 先轉場到 result 場景（讓 ResultSceneManager 初始化）
-        // 然後再發出 game:end 事件（確保 ResultSceneManager 已準備好接收）
+
+        // 保存分數到全局變數，防止 scene 切換時丟失
+        window._gameScore = this._score;
+        cc.log('[GameManager] 保存分數到 window._gameScore=', this._score);
+
+        // 發出事件給其他 scene（如果監聽者已準備好）
+        EventBus.emit('game:end', { score: this._score });
+
         cc.director.loadScene('result');
-        this.scheduleOnce(() => {
-            cc.log('[GameManager] 延遲後發出 game:end 事件，score=', this._score);
-            EventBus.emit('game:end', { score: this._score });
-        }, 0.5);
     },
 });
 

@@ -75,6 +75,8 @@ const ResultSceneManager = cc.Class({
 
         // Guest 不能重玩，只能看排行榜或回菜單
         const isHost = window._nmRole !== 'guest';
+        cc.log('[ResultSceneManager] 診斷: isHost=', isHost, ', _nmRole=', window._nmRole);
+
         if (this.replayBtn) {
             this.replayBtn.node.active = isHost;  // 只有 Host 能重玩
             if (isHost) {
@@ -91,6 +93,13 @@ const ResultSceneManager = cc.Class({
 
         // 監聽遊戲結束事件，顯示分數並上傳排行榜
         EventBus.on('game:end', this._onGameEnd, this);
+        cc.log('[ResultSceneManager] 已註冊 game:end 事件監聽');
+
+        // 檢查是否有保存的分數（來自 GameManager）
+        if (window._gameScore !== undefined) {
+            cc.log('[ResultSceneManager] 從 window._gameScore 獲取分數=', window._gameScore);
+            this._onGameEnd({ score: window._gameScore });
+        }
 
         // Guest 訂閱 Host 的 result 選擇 + start_game 兜底，否則 Host 按再玩一次
         // 之後這邊只是 log「Code 4 收到」但沒人接，Guest 永遠卡在 result scene。
@@ -140,9 +149,10 @@ const ResultSceneManager = cc.Class({
     _onGameEnd(data) {
         cc.log('[ResultSceneManager] 遊戲結束，分數:', data.score);
 
-        // 顯示分數
+        // 顯示分數 - 正中間，大字體
         if (this.scoreLabel) {
-            this.scoreLabel.string = '最終分數: ' + data.score;
+            this.scoreLabel.string = data.score + ' 分';
+            this.scoreLabel.node.y = 150;  // 位置在正中間偏上
         }
 
         // Host 才上傳分數到排行榜
@@ -312,18 +322,26 @@ const ResultSceneManager = cc.Class({
             cc.log('[ResultSceneManager] 生成', leaderboard.length, '項排行榜');
             leaderboard.forEach((item, index) => {
                 const itemNode = new cc.Node(`rank_${item.rank}`);
-                itemNode.height = 40;
+                itemNode.height = 50;
 
                 const label = itemNode.addComponent(cc.Label);
-                label.string = `${item.rank}. ${item.name} ── ${item.level} ── ${item.score}分`;
-                label.fontSize = 16;
-                label.lineHeight = 40;
+
+                // 簡化格式：排名. 玩家名 - 難度 - 分數
+                label.string = `${item.rank}. ${item.name}  -  ${item.level}  -  ${item.score}分`;
+                label.fontSize = 18;
+                label.lineHeight = 50;
+                label.horizontalAlign = cc.Label.HorizontalAlign.LEFT;
+
+                // 設定字體顏色為黑色
+                itemNode.color = cc.color(0, 0, 0, 255);
 
                 itemNode.parent = this.leaderboardContent;
-                itemNode.y = -(index * 45 + 20);
+                // 頂部留 60px 的空間，避免被卷周切掉
+                itemNode.y = -(index * 55 + 60);
             });
 
-            const contentHeight = Math.max(leaderboard.length * 45 + 40, 300);
+            // 增加頂部 padding，總高度 = 60 + 每項高度
+            const contentHeight = Math.max(60 + leaderboard.length * 55 + 40, 400);
             this.leaderboardContent.height = contentHeight;
 
             cc.log('[ResultSceneManager] 排行榜加載完成');
