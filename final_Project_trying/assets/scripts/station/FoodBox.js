@@ -46,8 +46,13 @@ const FoodBox = cc.Class({
 
         player.pickUp(itemNode);
 
+        // FoodBox component 本身就是 FOOD_BOX，不信任 this.stationType。
+        // game.fire 裡部分 FoodBox（toast / chocolate_jam / black_tea）被誤設為 'STOVE'，
+        // 廣播後 GameNetworkBridge._applyRemoteStation 走錯分支（Regular/Cooking 而非
+        // FOOD_BOX），P2 端只會建一個 40×40 空白 proxy → 看不到食材，
+        // 後續放桌上合成 chocolate_toast 時 sizeMode=TRIMMED 又把 node 撐到 1024×1024 → 變超大。
         EventBus.emit('station:pickup', {
-            stationType: this.stationType,
+            stationType: 'FOOD_BOX',
             col:         this.gridCol,
             row:         this.gridRow,
             item:        itemNode.name,

@@ -93,18 +93,10 @@ cc.Class({
             cc.log('[GameNetworkBridge] ✓ 兩人都已進場，顯示關卡說明');
             // 通知 GuideOverlay 顯示（不直接呼叫 startGame，等 Host 長按空白鍵）
             EventBus.emit('game:ready');
-
-            // Fallback：若 1 秒內沒有 GuideOverlay 接管讓 GameManager 進入 PLAYING，
-            // 就直接開局。處理 game.fire 還沒掛 GuideOverlay 節點 / 圖片資源缺失的情況，
-            // 避免 game:ready 沒人接的時候卡死無法開始遊戲。
-            // 隊友把 scene + 圖補上後，guide 會在 1s 內讓 phase 轉成 PLAYING，
-            // 這條 fallback 自動失效，不需手動移除。
-            this.scheduleOnce(() => {
-                if (GameManager.instance && GameManager.instance.phase !== GameManager.Phase.PLAYING) {
-                    cc.warn('[GameNetworkBridge] guide 超時（1s 沒人完成），fallback 直接 startGame');
-                    GameManager.instance.startGame();
-                }
-            }, 1.0);
+            // 不在這裡 fallback 開局 — GuideOverlay 已經在 scene 裡，會主導 startGame。
+            // 之前曾經加 1s fallback（處理 GuideOverlay 沒進 scene 的情況），但 GuideOverlay
+            // 顯示 overlay 不會改 GameManager.phase，fallback 條件永遠成立 → 訂單在玩家
+            // 還沒看完 guide 時就被 spawn。GuideOverlay 入場後這條 fallback 已沒必要。
         } else {
             cc.log('[GameNetworkBridge] 還在等待對方... _localReady=', this._localReady, '_remoteReady=', this._remoteReady);
         }

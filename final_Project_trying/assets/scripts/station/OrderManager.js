@@ -84,13 +84,11 @@ const OrderManager = cc.Class({
         // Idempotent：unschedule 後再 schedule，防止 game:start 被重複 emit 時雙重排程
         this.unschedule(this._spawnOrder);
 
-        // 已啟動過就不再清空 _orders，避免 race（Guest 收到 code 22 後才收到本地
-        // game:start）把已同步的訂單給洗掉
-        if (!this._started) {
-            this._orders = [];
-            this._nextId = 0;
-            this._started = true;
-        }
+        // 不在這裡 reset _orders。Race 路徑：Guest 在 game:start 之前先收到 Host 的
+        // EV_ORDER 'added' 廣播，訂單已 push 進 _orders 並顯示 UI；此時若把 _orders=[]
+        // 清掉，Host 之後廣播 'expired' 時 Guest 找不到 id 直接 return，UI 永遠卡住。
+        // onLoad 已經把 _orders 設成 []；_onGameEnd 也會清。
+        this._started = true;
 
         cc.log('[OrderManager] 開始產生訂單, isHost=', this._isHost, 'orders.len=', this._orders.length);
 
@@ -212,12 +210,19 @@ const OrderManager = cc.Class({
                 timeLimit: order.timeLimit,
             });
         } else if (data.action === 'expired') {
+            // 即使本地 _orders 找不到（race 期間被洗掉、或本地已自行過期），仍要 emit
+            // order:expired 通知 OrderContainer 移除 UI；否則訂單卡在畫面上不消失。
             const idx = this._orders.findIndex(o => o.id === data.id);
-            if (idx === -1) return;
-            const order = this._orders[idx];
-            this._orders.splice(idx, 1);
-            cc.log('[OrderRemove] path=NET-EXPIRED-FROM-HOST id=', order.id, 'recipe=', order.recipe, 'timeLeft=', order.timeLeft.toFixed(2));
-            EventBus.emit('order:expired', { id: order.id, recipe: order.recipe });
+            let recipe = null;
+            if (idx >= 0) {
+                const order = this._orders[idx];
+                recipe = order.recipe;
+                this._orders.splice(idx, 1);
+                cc.log('[OrderRemove] path=NET-EXPIRED-FROM-HOST id=', order.id, 'recipe=', order.recipe, 'timeLeft=', order.timeLeft.toFixed(2));
+            } else {
+                cc.log('[OrderRemove] path=NET-EXPIRED-FROM-HOST id=', data.id, '本地 _orders 找不到，僅通知 UI 移除');
+            }
+            EventBus.emit('order:expired', { id: data.id, recipe });
         }
     },
 

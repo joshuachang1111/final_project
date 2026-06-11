@@ -19,22 +19,14 @@ const ITEM_SPRITE_UUIDS = {
     tomato_sliced:      '9dfac34e-7be9-439a-ae7b-801f8490c8f3',
 };
 
-// 把 spriteFrame 套到 itemNode，並把 itemNode 的 content size 設成 spriteFrame 的原始大小。
-//
-// 為什麼要顯式設 size：呼叫端（FoodBox._onPickup）會在 applySpriteFrame() 之後立刻
-// 鎖 sprite.sizeMode = CUSTOM。但此函式是非同步（assetManager.loadAny callback），
-// 等 callback 把 spriteFrame 塞進來時 sizeMode 已經 CUSTOM 了，node 就不會 auto-resize
-// 到 spriteFrame 原始尺寸 → 整顆停在初始的 100×100，再 × foodScale (0.5) = 50×50 變超小。
-// 解法：callback 內順手用 spriteFrame.getRect() 把 node 大小撐到原始尺寸，等同
-// 還原 sizeMode=TRIMMED 時的 auto-resize 行為。
+// 只套 spriteFrame，不動 itemNode 的 width/height。
+// 呼叫端（FoodBox._onPickup）已經把 itemNode 設為 100×100 + sizeMode=CUSTOM，
+// prefab 上的 foodScale 是針對「100×100 node」算好的倍率（1024px 食材圖 × 0.07 ≈ 7px）。
+// 之前曾經在這裡用 spriteFrame.getRect() 把 node 撐到原圖大小 (1024×1024)，
+// 結果 1024 × foodScale(0.07) ≈ 72px → 拿到的食材變超大。
 function _applyFrame(itemNode, sprite, frame) {
     if (!cc.isValid(itemNode) || !frame) return;
     sprite.spriteFrame = frame;
-    const rect = (typeof frame.getRect === 'function') ? frame.getRect() : null;
-    if (rect && rect.width > 0 && rect.height > 0) {
-        itemNode.width  = rect.width;
-        itemNode.height = rect.height;
-    }
 }
 
 function applySpriteFrame(itemNode, itemName, fallbackFrame) {
