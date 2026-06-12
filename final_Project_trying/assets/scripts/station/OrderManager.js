@@ -14,8 +14,9 @@
  *     後續食材只能繼續補同一筆訂單，直到湊齊或放棄。
  */
 
-const EventBus    = require('../core/EventBus');
-const GameManager = require('../core/GameManager');
+const EventBus      = require('../core/EventBus');
+const GameManager   = require('../core/GameManager');
+const AudioManager  = require('../core/AudioManager');
 
 // ── 訂單設定 ──────────────────────────────────────────────
 const RECIPES = [
@@ -29,7 +30,6 @@ const RECIPES = [
 ];
 
 // recipe → 所需食材（標準化後的名稱，與 ServingCounter._normalizeItemName 的 value 一致）
-
 const RECIPE_INGREDIENTS = {
     'hamburger': ['hamburger'],
     'chocolate_toast': ['chocolate_toast'],
@@ -40,10 +40,20 @@ const RECIPE_INGREDIENTS = {
     'full_meal': ['hamburger', 'black_tea', 'chocolate_toast'],
 };
 
+// recipe → 音效檔案路徑
+const RECIPE_SOUNDS = {
+    'hamburger':       'audio/burger',
+    'chocolate_toast': 'audio/chocolate',
+    'black_tea':       'audio/blacktea',
+    'burger_tea':      'audio/Burger_tea',
+    'toast_tea':       'audio/Toast_Tea',
+    'burger_toast':    'audio/burger_Toast',
+    'full_meal':       'audio/full_meal',
+};
 
-const MAX_ACTIVE_ORDERS = 3;
-const SPAWN_INTERVAL    = 15;
-const EV_ORDER          = 22;
+const MAX_ACTIVE_ORDERS = 3;   // 同時最多幾筆訂單
+const SPAWN_INTERVAL    = 15;  // 每幾秒產生一筆新訂單
+const EV_ORDER          = 22;  // Photon 事件碼：訂單同步（added / expired）
 
 // ─────────────────────────────────────────────────────────
 
@@ -158,6 +168,15 @@ const OrderManager = cc.Class({
         };
 
         this._orders.push(order);
+
+        const soundFile = RECIPE_SOUNDS[order.recipe];
+        if (soundFile) {
+            const am = AudioManager.ensure ? AudioManager.ensure() : AudioManager.instance;
+            if (am) {
+                am.playEffect(soundFile);
+            }
+        }
+
         EventBus.emit('order:added', {
             id:        order.id,
             recipe:    order.recipe,
