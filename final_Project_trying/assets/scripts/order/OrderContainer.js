@@ -22,6 +22,8 @@ const LEVEL2_RECIPE_ICONS = {
     box_Airpods_charger: ['Airpods_checked', 'charger_checked'],
     box_all: ['iPhone_checked', 'Airpods_checked', 'charger_checked'],
 };
+const LEVEL2_ORDER_CARD_W = 440;
+const LEVEL2_ORDER_CARD_H = 300;
 // ─────────────────────────────────────────────────────────
 
 // game.fire 有兩個 OrderContainer 節點同時掛 component（一個在 Canvas 直接子、
@@ -131,16 +133,14 @@ cc.Class({
         }
         
         // 調整食物稍微往下移，把上方的空間留給超大時間條
-        foodNode.setPosition(0, level2Icons ? 20 : -20);
+        foodNode.setPosition(0, -20);
         foodNode.parent = orderNode;
 
         // --- 新增：建立 Label 顯示時間 ---
         const labelNode = new cc.Node('TimeLabel');
         labelNode.parent = orderNode;
-        if (level2Icons) labelNode.setPosition(0, -170);
         labelNode.setPosition(0, -230); // 調整至你喜歡的 Y 軸高度
         const labelComp = labelNode.addComponent(cc.Label);
-        if (level2Icons) labelNode.setPosition(0, -170);
         labelComp.fontSize = 60;
         labelComp.string = Math.ceil(data.timeLeft) + 's';
         orderNode.timeLabel = labelComp; // 存起來，給 update 用
@@ -154,7 +154,7 @@ cc.Class({
         const barHeight = 40; 
 
         // 🎯 移到上面：定位在食物圖片的上方
-        barNode.setPosition(-barWidth / 2, level2Icons ? -80 : (foodNode.height / 2) - 80);
+        barNode.setPosition(-barWidth / 2, (foodNode.height / 2) - 80);
         
         const ctx = barNode.addComponent(cc.Graphics);
         orderNode.timeBarCtx = ctx; 
@@ -165,7 +165,7 @@ cc.Class({
         this._drawProgressBar(ctx, barWidth, barHeight, 1.0); 
 
         // 調整主節點總尺寸（給予足夠的 Layout 空間避免重疊）
-        orderNode.setContentSize(barWidth, level2Icons ? 230 : foodNode.height + barHeight + 40);
+        orderNode.setContentSize(barWidth, foodNode.height + barHeight + 40);
 
         // 通知 Layout 重新排隊
         const layout = this.node.getComponent(cc.Layout);
@@ -225,11 +225,16 @@ cc.Class({
 
     // ── 🎨 核心繪圖邏輯（灰色底、綠色隨時間由右向左減少） ──
     _buildLevel2OrderIcons(foodNode, iconNames) {
-        const iconSize = 72;
-        const spacing = 62;
-        const width = Math.max(120, (iconNames.length - 1) * spacing + iconSize);
+        const iconSize = 96;
+        const spacing = 110;
+        const totalIconWidth = (iconNames.length - 1) * spacing + iconSize;
 
-        foodNode.setContentSize(width, 100);
+        foodNode.setContentSize(LEVEL2_ORDER_CARD_W, LEVEL2_ORDER_CARD_H);
+
+        const bg = foodNode.addComponent(cc.Graphics);
+        bg.fillColor = cc.color(225, 235, 245, 255);
+        bg.rect(-LEVEL2_ORDER_CARD_W / 2, -LEVEL2_ORDER_CARD_H / 2, LEVEL2_ORDER_CARD_W, LEVEL2_ORDER_CARD_H);
+        bg.fill();
 
         iconNames.forEach((iconName, index) => {
             const iconNode = new cc.Node('Icon_' + iconName);
@@ -237,8 +242,8 @@ cc.Class({
             sprite.sizeMode = cc.Sprite.SizeMode.CUSTOM;
             iconNode.parent = foodNode;
             iconNode.setContentSize(iconSize, iconSize);
-            iconNode.x = index * spacing - ((iconNames.length - 1) * spacing / 2);
-            iconNode.y = 0;
+            iconNode.x = index * spacing - (totalIconWidth - iconSize) / 2;
+            iconNode.y = -5;
 
             this._loadSpriteFromRegistry(sprite, iconNode, iconName);
         });

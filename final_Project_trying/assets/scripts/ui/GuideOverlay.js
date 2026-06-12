@@ -19,8 +19,8 @@ const RING_RADIUS   = 22;     // 進度圓圈半徑（px）
 const RING_WIDTH    = 5;      // 圓圈線寬
 const IMG_SIZE      = 580;    // 說明圖顯示大小（原圖 2048×2048，等比顯示不變形）
 
-const IMG_MAX_W     = 760;
-const IMG_MAX_H     = 580;
+const IMG_MAX_W     = 880;
+const IMG_MAX_H     = 650;
 
 const GuideOverlay = cc.Class({
     extends: cc.Component,
