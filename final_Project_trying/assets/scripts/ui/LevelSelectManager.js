@@ -1,6 +1,6 @@
 const LEVEL_SCENE_MAP = {
     susui:         'game',
-    hansung:       'game',
+    hansung:       'game2',
     shuimu:        'game',
     fengyun:       'game',
     burger_battle: 'burger_battle',   // 漢堡組裝對抗模式
@@ -84,14 +84,16 @@ cc.Class({
         if (this._navigated) return;
         this._navigated = true;
 
+        const levelId = msg.level || 'susui';
+        const sceneName = LEVEL_SCENE_MAP[levelId] || 'game';
+
         cc.log('[LevelSelectManager] Guest 收到 start_game, level=', msg.level);
-        cc.sys.localStorage.setItem('selectedLevel', msg.level || 'susui');
+        cc.sys.localStorage.setItem('selectedLevel', levelId);
         cc.sys.localStorage.setItem('playerRole', window._nmRole || 'guest');
 
         // 立即進遊戲（同步由 GameNetworkBridge 負責）
-        const targetScene = LEVEL_SCENE_MAP[msg.level] || 'game';
-        cc.log('[LevelSelectManager] Guest 立即進遊戲, scene=', targetScene);
-        cc.director.loadScene(targetScene);
+        cc.log('[LevelSelectManager] Guest 立即進遊戲, scene=', sceneName);
+        cc.director.loadScene(sceneName);
     },
 
     onBackBtn() {
