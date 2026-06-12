@@ -25,10 +25,16 @@ const ServingCounter = cc.Class({
     },
 
     _onOrderRemoved(data) {
-        if (!this._currentSubmission) return;
-        if (data && data.id !== this._currentSubmission.orderId) return;
-        cc.log('[ServingCounter] 鎖定訂單', data && data.id, '已被移除，重置 submission 並清桌上食材');
+        // 本桌正在進行的單跟事件對得上 → 清；遠端 stage 進來的桌（_currentSubmission=null）
+        // 也用 _remoteStageOrderId 比對 → 清。其他無關訂單跳過，避免誤清其他桌的暫存。
+        const localId  = this._currentSubmission && this._currentSubmission.orderId;
+        const remoteId = this._remoteStageOrderId;
+        const targetId = data && data.id;
+        if (localId == null && remoteId == null) return;
+        if (targetId != null && targetId !== localId && targetId !== remoteId) return;
+        cc.log('[ServingCounter] 訂單', targetId, '已被移除，重置 submission + 清桌上食材');
         this._currentSubmission = null;
+        this._remoteStageOrderId = null;
         this._clearStagedItems();
         EventBus.emit('buffer:clear');
     },
@@ -137,6 +143,16 @@ const ServingCounter = cc.Class({
         this._currentSubmission.submittedItems.push(itemName);
         this._addStagedItem(item);
 
+        // 通知對方：把我頭上 ghost 取下，移到 ServingCounter 桌上（同步暫存區）。
+        // 帶 orderId，讓對方端 _onOrderRemoved 看到對應訂單被消費/過期時，也能精確清掉桌上暫存。
+        cc.log('[ServingCounter] emit station:stage item=', itemName);
+        EventBus.emit('station:stage', {
+            col:     this.gridCol,
+            row:     this.gridRow,
+            item:    itemName,
+            orderId: this._currentSubmission.orderId,
+        });
+
         // 4. 檢查是否湊齊
         if (this._checkCompletion(this._currentSubmission)) {
             this._completeSubmission(null);
@@ -148,19 +164,24 @@ const ServingCounter = cc.Class({
         this._clearStagedItems();
 
         // 1. 先記錄 ID 並執行訂單消耗邏輯
+        // 注意：OrderManager.consumeOrderById 內部「已經」addScore 並 emit 'order:completed'，
+        // 這裡不要再加一次，否則本地端會雙倍加分（reward × 2），加上 EV_SCORE_SYNC 同步到
+        // 對方時，對方也會因為 _applyRemoteServe 再 consumeOrderById 而多加，最後變 3~4 倍。
         const orderId = this._currentSubmission.orderId;
         const recipe = this._currentSubmission.recipe;
         const result = OrderManager.instance.consumeOrderById(orderId);
 
         if (result.found) {
-            EventBus.emit('order:completed', { id: orderId, recipe: recipe });
-
-            // 使用安全呼叫，避免因為找不到 GameManager 而崩潰
-            if (typeof GameManager !== 'undefined' && GameManager.instance) {
-                GameManager.instance.addScore(result.reward);
-            } else {
-                cc.log('[ServingCounter] GameManager 未定義，無法加分，但訂單已處理');
-            }
+            // 通知對方：我成功出餐了，請從你那邊也把訂單移掉、清掉我頭上的 ghost item。
+            // GameNetworkBridge 監聽 'station:serve' → 廣播 EV_SERVE。
+            cc.log('[ServingCounter] emit station:serve orderId=', orderId, 'recipe=', recipe);
+            EventBus.emit('station:serve', {
+                success: true,
+                col:     this.gridCol,
+                row:     this.gridRow,
+                item:    recipe,
+                orderId: orderId,
+            });
         }
 
         // 保險：emit buffer:clear 蓋掉舊 buffer UI 可能殘留

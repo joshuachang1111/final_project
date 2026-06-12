@@ -11,6 +11,7 @@ const EV_SKILL      = 14;   // 技能發動同步（x, y, skill）
 const EV_GUIDE      = 15;   // Host 長按空白完成，通知 Guest 開始遊戲
 const EV_TICK_SYNC  = 20;   // 計時器同步（Host 廣播，保持兩人計時同步）
 const EV_SCORE_SYNC = 21;   // 分數同步（任一方分數改變時廣播）
+const EV_STAGE      = 23;   // ServingCounter 食材暫存（湊單中，尚未完成）同步
 
 // ── Burger Battle 專用事件 ──────────────────────────────────
 const EV_BB_SEED    = 30;   // Host → Guest: 帶子 seed（遊戲開始時廣播）
@@ -34,6 +35,7 @@ cc.Class({
         this._onLocalPickup  = this._handleLocalPickup.bind(this);
         this._onLocalPlace   = this._handleLocalPlace.bind(this);
         this._onLocalServe   = this._handleLocalServe.bind(this);
+        this._onLocalStage   = this._handleLocalStage.bind(this);
         this._onLocalScore   = this._handleLocalScore.bind(this);
         this._onLocalSkill   = this._handleLocalSkill.bind(this);
         this._onGuideComplete = this._handleGuideComplete.bind(this);
@@ -44,6 +46,7 @@ cc.Class({
         EventBus.on('station:pickup',      this._onLocalPickup,  this);
         EventBus.on('station:place',       this._onLocalPlace,   this);
         EventBus.on('station:serve',       this._onLocalServe,   this);
+        EventBus.on('station:stage',       this._onLocalStage,   this);
         EventBus.on('game:score',          this._onLocalScore,   this);
         EventBus.on('skill:local',         this._onLocalSkill,   this);
         EventBus.on('guide:local_complete', this._onGuideComplete, this);
@@ -140,6 +143,7 @@ cc.Class({
         EventBus.off('station:pickup',      this._onLocalPickup,  this);
         EventBus.off('station:place',       this._onLocalPlace,   this);
         EventBus.off('station:serve',       this._onLocalServe,   this);
+        EventBus.off('station:stage',       this._onLocalStage,   this);
         EventBus.off('game:score',          this._onLocalScore,   this);
         EventBus.off('skill:local',         this._onLocalSkill,   this);
         EventBus.off('guide:local_complete', this._onGuideComplete, this);
@@ -205,9 +209,15 @@ cc.Class({
     },
 
     _handleLocalServe(data) {
-        if (this._applyingRemote) return;
-        // Only sync successful serves to avoid syncing failed attempts
-        if (!data.success || !window._nm) return;
+        if (this._applyingRemote) {
+            cc.log('[GNB] station:serve 被 _applyingRemote 擋下');
+            return;
+        }
+        if (!data.success || !window._nm) {
+            cc.log('[GNB] station:serve 不送：success=', data.success, '_nm=', !!window._nm);
+            return;
+        }
+        cc.log('[GNB] 廣播 EV_SERVE orderId=', data.orderId, 'item=', data.item);
         window._nm.sendGameEvent(EV_SERVE, {
             col:     data.col,
             row:     data.row,
@@ -221,6 +231,18 @@ cc.Class({
         if (!window._nm) return;
         window._nm.sendGameEvent(EV_SCORE_SYNC, {
             score: data.score,
+        });
+    },
+
+    _handleLocalStage(data) {
+        if (this._applyingRemote) return;
+        if (!window._nm) return;
+        cc.log('[GNB] 廣播 EV_STAGE col=', data.col, 'row=', data.row, 'item=', data.item, 'orderId=', data.orderId);
+        window._nm.sendGameEvent(EV_STAGE, {
+            col:     data.col,
+            row:     data.row,
+            item:    data.item,
+            orderId: typeof data.orderId === 'number' ? data.orderId : -1,
         });
     },
 
@@ -252,6 +274,7 @@ cc.Class({
         if      (code === EV_MOVE)    this._applyRemoteMove(data);
         else if (code === EV_STATION) this._applyRemoteStation(data);
         else if (code === EV_SERVE)   this._applyRemoteServe(data);
+        else if (code === EV_STAGE)   this._applyRemoteStage(data);
         else if (code === EV_SKILL)   this._applyRemoteSkill(data);
         else if (code === EV_GUIDE)   this._applyRemoteGuide();
         // ── Burger Battle ──
@@ -465,33 +488,88 @@ cc.Class({
         cc.log('Bridge: 收到遠端出餐', JSON.stringify(data));
 
         const OrderManager = require('../station/OrderManager');
-        // 優先用 orderId 精準移除；舊版送的事件可能沒帶 orderId，fallback 回 recipe 配對。
-        // 用 id 可以避免「兩邊各自配到不同的同名訂單」造成 UI 不一致。
-        let result;
-        if (OrderManager.instance) {
-            if (typeof data.orderId === 'number' && data.orderId >= 0) {
-                result = OrderManager.instance.consumeOrderById(data.orderId);
-                // 已被本地 update 過期掉了 → no-op，分數靠 EV_SCORE_SYNC 同步
-                if (!result.found) {
-                    cc.log('Bridge: orderId', data.orderId, '在本地已不存在（可能已過期），略過');
-                    return;
+        // 用 consumeOrderByIdRemote（不加分）— 加分由 host 端的 consumeOrderById 加並透過
+        // EV_SCORE_SYNC 同步給我們，否則會雙倍/三倍。
+        let result = { id: -1, reward: 0, found: false };
+        let orderFoundLocally = false;
+        if (OrderManager.instance && typeof data.orderId === 'number' && data.orderId >= 0) {
+            result = OrderManager.instance.consumeOrderByIdRemote(data.orderId);
+            orderFoundLocally = result.found;
+            if (!result.found) {
+                cc.log('Bridge: orderId', data.orderId, '在本地已不存在（可能已過期），仍清 ghost item');
+            }
+        }
+
+        if (orderFoundLocally) {
+            // 通知 UI 移除卡片；不再 addScore（EV_SCORE_SYNC 處理）。
+            EventBus.emit('order:completed', {
+                id:     result.id,
+                recipe: data.item,
+                score:  0,
+            });
+        }
+
+        // 對方在自己端 destroy 了手上的成品，但我這邊的 remote ghost player 還拿著對應
+        // sprite（station:pickup 之前同步過）。直接 reach into 內部欄位強制清，避免
+        // dropItem() 因為 carryState 跟 _heldItem 不一致時回傳 null 而漏掉。
+        const remote = this._getRemotePlayerFallback();
+        if (!remote) {
+            cc.warn('Bridge: 找不到 remote player，無法清 ghost 成品');
+        } else {
+            const PCMod = require('../player/PlayerController');
+            const CarryState = PCMod && PCMod.CarryState;
+            const ghost = remote._heldItem;
+            cc.log('Bridge: ghost 清理 — _heldItem=', ghost && ghost.name, 'carryState=', remote._carryState);
+            if (ghost) {
+                remote._heldItem = null;
+                if (CarryState) remote._carryState = CarryState.EMPTY;
+                if (cc.isValid(ghost)) {
+                    ghost.removeFromParent(true);
+                    ghost.destroy();
                 }
+                cc.log('Bridge: 已強制清掉 remote player ghost 成品');
             } else {
-                result = OrderManager.instance.consumeOrderByRecipe(data.item);
+                cc.log('Bridge: remote._heldItem 是 null，無 ghost 需要清');
+            }
+        }
+    },
+
+    // 收到遠端把食材放到 ServingCounter 桌上（湊單中，尚未完成）。
+    // 把 remote ghost 頭上的 item 轉移到 ServingCounter 桌上的 _stagedItems。
+    _applyRemoteStage(data) {
+        cc.log('Bridge: 收到遠端 stage', JSON.stringify(data));
+        const station = this._getStationFallback(data.col, data.row);
+        const remote  = this._getRemotePlayerFallback();
+        if (!station || !remote) {
+            cc.warn('Bridge: stage 失敗 station=', !!station, 'remote=', !!remote);
+            return;
+        }
+
+        const PCMod = require('../player/PlayerController');
+        const CarryState = PCMod && PCMod.CarryState;
+        const ghost = remote._heldItem;
+        cc.log('Bridge: stage 取下 ghost — _heldItem=', ghost && ghost.name);
+
+        if (ghost && cc.isValid(ghost)) {
+            // 從 ghost player 上取下 item
+            remote._heldItem = null;
+            if (CarryState) remote._carryState = CarryState.EMPTY;
+            // 把 ghost item 直接放到 ServingCounter 桌上（沿用本地端 _addStagedItem 排版）
+            if (typeof station._addStagedItem === 'function') {
+                station._addStagedItem(ghost);
+                cc.log('Bridge: ghost item 已轉移到 ServingCounter 桌上');
+            } else {
+                ghost.parent = station.node;
+                ghost.x = 0;
+                ghost.y = (station.itemOffsetY || 0) + 50;
             }
         } else {
-            result = { id: -1, reward: 0 };
+            cc.warn('Bridge: ghost 為空，無法 stage（race 漏接 pickup）');
         }
-
-        if (result.reward > 0 && GameManager.instance) {
-            GameManager.instance.addScore(result.reward);
+        // 記住這份暫存對應的 orderId，等對方完成出餐或訂單過期時，_onOrderRemoved 才能精準清掉
+        if (typeof data.orderId === 'number' && data.orderId >= 0) {
+            station._remoteStageOrderId = data.orderId;
         }
-
-        EventBus.emit('order:completed', {
-            id:     result.id,
-            recipe: data.item,
-            score:  result.reward,
-        });
     },
 
     // 收到遠端角色選擇，更新遠端玩家的 Sprite
