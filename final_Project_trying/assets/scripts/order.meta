@@ -2,7 +2,7 @@
   "ver": "1.1.3",
   "uuid": "7da8fabb-d717-4ddd-b619-b9d62363696c",
   "importer": "folder",
-  "isBundle": true,
+  "isBundle": false,
   "bundleName": "resources",
   "priority": 8,
   "compressionType": {},

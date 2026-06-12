@@ -1,7 +1,7 @@
 {
-  "title": "final_Project_trying",
+  "title": "overcooked_in_Tsinghua",
   "packageName": "org.cocos2d.demo",
-  "startScene": "029b36e5-2e8d-442d-a2c7-ec4f570b6ca6",
+  "startScene": "75fc9a5e-aec7-4cf8-8af0-245963d29354",
   "excludeScenes": [],
   "orientation": {
     "landscapeRight": true,
