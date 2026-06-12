@@ -20,7 +20,7 @@ const GameManager     = require('../core/GameManager');
 const InputHandler    = require('../input/InputHandler');
 const BoarController  = require('./BoarController');
 
-const SPEED             = 350;
+const SPEED             = 150;
 const PLAYER_HALF_W     = 20;
 const PLAYER_HALF_H     = 14;
 const NET_SEND_INTERVAL = 0.05;   // 20 Hz
@@ -78,6 +78,11 @@ const PlayerController = cc.Class({
         // 草皮大尖叫效果計時
         this._chaosTimer = 0;
 
+        // 衝刺（Space）
+        this._dashTimer    = 0;    // 衝刺持續剩餘秒數（> 0 = 衝刺中）
+        this._dashCooldown = 0;    // 冷卻剩餘秒數
+        this._dashFacing   = null; // 按下 Space 當下鎖定的朝向
+
         const b = GridSystem.floorBounds();
         this._floorTop    = b.top;
         this._floorBottom = b.bottom;
@@ -116,6 +121,39 @@ const PlayerController = cc.Class({
         const A  = InputHandler.Action;
         const id = 1;
 
+        // ── 計時器（每幀都要更新）───────────────────────────
+        if (this._dashCooldown > 0) this._dashCooldown -= dt;
+        if (this._dashTimer    > 0) this._dashTimer    -= dt;
+        for (const key in this._skillCooldowns) {
+            if (this._skillCooldowns[key] > 0) this._skillCooldowns[key] -= dt;
+        }
+        if (this._chaosTimer > 0) this._chaosTimer -= dt;
+
+        // ── 衝刺進行中：鎖定方向，強制高速，略過一般輸入 ──
+        if (this._dashTimer > 0) {
+            const DASH_SPEED = 600;
+            const f   = this._dashFacing;
+            const len = Math.sqrt(f.dc * f.dc + f.dr * f.dr) || 1; // 對角線等比縮放
+            this._vx      = (f.dc  / len) * DASH_SPEED;
+            this._vy      = (-f.dr / len) * DASH_SPEED;
+            this._isMoving = true;
+            this._facing   = this._dashFacing;
+            this._moveWithCollision(dt);
+            // 網路同步仍持續（對方看到衝刺位移）
+            this._netTimer += dt;
+            if (this._netTimer >= NET_SEND_INTERVAL) {
+                this._netTimer = 0;
+                EventBus.emit('player:moved', {
+                    playerId: this.playerId,
+                    x:        this._px,
+                    y:        this._py,
+                    facing:   this._facing.name,
+                });
+            }
+            return;
+        }
+
+        // ── 一般輸入處理 ─────────────────────────────────────
         const up    = input.isHeld(id, A.MOVE_UP);
         const down  = input.isHeld(id, A.MOVE_DOWN);
         const left  = input.isHeld(id, A.MOVE_LEFT);
@@ -152,11 +190,10 @@ const PlayerController = cc.Class({
 
         this._moveWithCollision(dt);
 
-        // 更新所有技能冷卻 & 效果計時
-        for (const key in this._skillCooldowns) {
-            if (this._skillCooldowns[key] > 0) this._skillCooldowns[key] -= dt;
+        // ── Space 衝刺 ────────────────────────────────────────
+        if (input.isJustPressed(id, A.DASH)) {
+            this._tryDash();
         }
-        if (this._chaosTimer > 0) this._chaosTimer -= dt;
 
         if (input.isJustPressed(id, A.INTERACT)) {
             const BBM = require('../ui/BurgerBattleManager');
@@ -194,6 +231,23 @@ const PlayerController = cc.Class({
                 facing:   this._facing.name,
             });
         }
+    },
+
+    // ── 衝刺 ──────────────────────────────────────────────
+
+    /**
+     * 按 Space 觸發衝刺：鎖定當前朝向，以 900px/s 移動 0.15 秒（≈135px）。
+     * 對角線速度等比縮放（÷√2），確保任何方向衝刺距離相同。
+     * 冷卻 2 秒。衝刺中 WASD 無效，碰牆自然停止。
+     */
+    _tryDash() {
+        if (this._dashCooldown > 0) return;   // 冷卻中
+        if (this._dashTimer    > 0) return;   // 已在衝刺（理論上不會到這裡）
+
+        this._dashFacing   = this._facing;    // 鎖定當前朝向
+        this._dashTimer    = 0.3;             // 衝刺持續 0.3s（≈270px）
+        this._dashCooldown = 2.0;             // 冷卻 2s
+        cc.log('[Dash] 衝刺 方向=', this._facing.name);
     },
 
     // ── 移動與碰撞 ────────────────────────────────────────

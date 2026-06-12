@@ -23,6 +23,7 @@ const Action = {
     MOVE_RIGHT: 'MOVE_RIGHT',
     INTERACT:   'INTERACT',
     SKILL:      'SKILL',
+    DASH:       'DASH',
 };
 
 /**
@@ -40,6 +41,7 @@ function buildBindings() {
             [Action.MOVE_RIGHT]: cc.macro.KEY.d,
             [Action.INTERACT]:   cc.macro.KEY.f,
             [Action.SKILL]:      cc.macro.KEY.e,
+            [Action.DASH]:       cc.macro.KEY.r,
         },
         2: {
             [Action.MOVE_UP]:    cc.macro.KEY.w,
@@ -48,6 +50,7 @@ function buildBindings() {
             [Action.MOVE_RIGHT]: cc.macro.KEY.d,
             [Action.INTERACT]:   cc.macro.KEY.f,
             [Action.SKILL]:      cc.macro.KEY.e,
+            [Action.DASH]:       cc.macro.KEY.r,
         },
     };
 }

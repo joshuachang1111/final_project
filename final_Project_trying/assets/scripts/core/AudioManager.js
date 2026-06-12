@@ -147,6 +147,17 @@ const AudioManager = cc.Class({
         cc.audioEngine.stopMusic();
         this._currentKey = null;
     },
+
+    playEffect(path) {
+        cc.resources.load(path, cc.AudioClip, (err, clip) => {
+            if (err || !clip) {
+                cc.warn('[AudioManager] 音效載入失敗:', path, err);
+                return;
+            }
+            cc.audioEngine.playEffect(clip, false);
+            cc.log('[AudioManager] 播放音效:', path);
+        });
+    },
 });
 
 module.exports = AudioManager;

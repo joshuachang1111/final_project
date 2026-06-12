@@ -125,18 +125,20 @@ cc.Class({
         this._updateUserPanel();
     },
 
-    // 建立房間 - 跳轉到 room.fire
+    // 建立房間 - 播開場動畫後跳轉到 room.fire
     onCreateRoom() {
         cc.log('[MenuManager] 建立房間按鈕被點擊');
         window._nmRole = 'host';
-        cc.director.loadScene('room');
+        const VideoManager = require('./VideoManager');
+        VideoManager.play('bigin_video', () => cc.director.loadScene('room'));
     },
 
-    // 加入房間 - 跳轉到 room.fire
+    // 加入房間 - 播開場動畫後跳轉到 room.fire
     onJoinRoomBtn() {
         cc.log('[MenuManager] 加入房間按鈕被點擊');
         window._nmRole = 'guest';
-        cc.director.loadScene('room');
+        const VideoManager = require('./VideoManager');
+        VideoManager.play('bigin_video', () => cc.director.loadScene('room'));
     },
 
     // 排行榜 - 跳轉到 leaderboard.fire
