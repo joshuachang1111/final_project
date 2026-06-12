@@ -527,6 +527,7 @@ cc.Class({
         window._nm.sendGameEvent(EV_BB_PICKUP, {
             col:      data.col,
             idx:      data.idx,
+            foodType: data.foodType,
             playerId: data.playerId,
         });
     },
@@ -550,7 +551,7 @@ cc.Class({
         EventBus.emit('bb:remote_seed', { seed: data.seed });
     },
 
-    /** 遠端撿走帶子食材 → 本地移除 */
+    /** 遠端撿走帶子食材 → 本地移除 + 讓 remote player 拿著對應食材 */
     _applyBBPickup(data) {
         const ConveyorBelt = require('./ConveyorBelt');
         for (const belt of ConveyorBelt.instances) {
@@ -559,6 +560,20 @@ cc.Class({
                 break;
             }
         }
+
+        // 讓對方端的 remote player 拿著對應食材，否則後續他放上桌時 _applyRemoteStation
+        // 的 fallback 會建空白 proxy，桌上看不到食材。foodType 從廣播取（舊版沒帶就跳過）。
+        if (!data.foodType) return;
+        const remote = this._getRemotePlayerFallback();
+        if (!remote || remote.isCarrying()) return;
+
+        const node = new cc.Node(data.foodType);
+        node.setContentSize(52, 52);
+        node._foodType = data.foodType;
+        const sp = node.addComponent(cc.Sprite);
+        sp.sizeMode = cc.Sprite.SizeMode.CUSTOM;
+        ItemSprites.applySpriteFrame(node, data.foodType);
+        remote.pickUp(node);
     },
 
     /** 遠端分數更新 → 更新 HUD */

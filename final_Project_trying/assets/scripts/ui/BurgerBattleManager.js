@@ -12,6 +12,7 @@ const ConveyorBelt         = require('../core/ConveyorBelt');
 const StationBase          = require('../station/StationBase');
 const BurgerServingCounter = require('../station/BurgerServingCounter');
 const EventBus             = require('../core/EventBus');
+const GameNetworkBridge    = require('../core/GameNetworkBridge');
 
 // 遊戲原版 table（工作臺）sprite UUID
 const TABLE_SPRITE_UUID = 'ee0596e6-9850-46c0-b431-fdd8b21f63b2';
@@ -37,6 +38,14 @@ const BurgerBattleManager = cc.Class({
             return;
         }
         BurgerBattleManager.instance = this;
+
+        // burger_battle.fire 場景檔沒掛 GameNetworkBridge：bb:local_* 沒人接、
+        // Photon 端 EV_BB_* 收不到、_onRemotePlayerReady 不觸發 → 沒人發
+        // bb:partner_ready → Host 永遠不生 seed → 兩邊帶子永遠不動 + 玩家不同步。
+        // 動態建一個節點，addComponent GameNetworkBridge 自我啟動。
+        const bridgeNode = new cc.Node('GameNetworkBridge');
+        this.node.addChild(bridgeNode);
+        bridgeNode.addComponent(GameNetworkBridge);
 
         this._timeLeft = this.totalTime;
         this._started  = false;
@@ -356,11 +365,16 @@ const BurgerBattleManager = cc.Class({
         canvas.addChild(backBtn);
 
         // ── P1 分數（左上）──────────────────────
-        this._p1ScoreNode = this._mkScoreLabel('P1：0', -W / 2 + 90, H / 2 - 40);
+        // 離邊緣 250px，留 preview viewport letterbox 餘量；對稱 P2。
+        // zIndex 100 確保在 ConveyorBelt 視覺梯形 (-1) 跟所有 default 之上。
+        this._p1ScoreNode = this._mkScoreLabel('P1：0', -W / 2 + 250, H / 2 - 30);
+        this._p1ScoreNode.zIndex = 100;
         canvas.addChild(this._p1ScoreNode);
 
         // ── P2 分數（右上）──────────────────────
-        this._p2ScoreNode = this._mkScoreLabel('P2：0',  W / 2 - 90, H / 2 - 40);
+        // 對稱 P1，也避開 BackBtn (662, 334, range 617~707)。
+        this._p2ScoreNode = this._mkScoreLabel('P2：0',  W / 2 - 250, H / 2 - 30);
+        this._p2ScoreNode.zIndex = 100;
         canvas.addChild(this._p2ScoreNode);
     },
 

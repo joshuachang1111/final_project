@@ -401,13 +401,18 @@ const PlayerController = cc.Class({
             if (!belt || !cc.isValid(belt.node)) continue;
             const item = belt.getNearestItem(this._px, this._py, 90);
             if (item) {
-                const beltIdx = item._beltIdx;
+                const beltIdx  = item._beltIdx;
+                const foodType = item._foodType;
                 belt.removeItem(item);
                 this.pickUp(item);
-                // 廣播給對方：從 col 帶子移除 index 為 beltIdx 的食材
+                // 廣播給對方：從 col 帶子移除 index 為 beltIdx 的食材，
+                // 並夾帶 foodType 讓對方端把 remote player 也設成持有此食材，
+                // 否則對方後續走 _applyRemoteStation 'place' 會走 fallback proxy
+                // 建立空白 sprite，桌上看起來像空的。
                 EventBus.emit('bb:local_pickup', {
-                    col:     belt.beltCol,
-                    idx:     beltIdx,
+                    col:      belt.beltCol,
+                    idx:      beltIdx,
+                    foodType: foodType,
                     playerId: this.playerId,
                 });
                 cc.log(`[Burger] P${this.playerId} 撿起 ${item._foodType} idx=${beltIdx}`);
