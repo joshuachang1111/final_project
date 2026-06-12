@@ -74,7 +74,7 @@ const LeaderboardManager = {
         return this._db.collection('leaderboard').doc(docId).set({
             name: playerName,
             uid: uid,
-            score: score,
+            score: Number(score),
             level: level,
             timestamp: new Date(),
         })
@@ -103,29 +103,30 @@ const LeaderboardManager = {
         cc.log('[LeaderboardManager] 開始查詢前', limit, '名...');
 
         return this._db.collection('leaderboard')
-            .orderBy('score', 'desc')
-            .limit(limit)
             .get()
             .then((snapshot) => {
                 cc.log('[LeaderboardManager] 查詢完成，文件數=', snapshot.size);
 
                 const leaderboard = [];
-                let rank = 0;
                 snapshot.forEach((doc) => {
-                    rank++;
                     const data = doc.data();
-                    cc.log('[LeaderboardManager] 排名', rank, ':', data);
-                    cc.log('[LeaderboardManager] score 類型=', typeof data.score, '值=', data.score);
+                    cc.log('[LeaderboardManager] 文件:', data);
                     leaderboard.push({
-                        rank: rank,
                         name: data.name || '訪客',
                         score: (typeof data.score === 'number') ? data.score : 0,
                         level: data.level || 'unknown',
                     });
                 });
 
-                cc.log('[LeaderboardManager] 取得排行榜:', JSON.stringify(leaderboard));
-                return leaderboard;
+                leaderboard.sort((a, b) => b.score - a.score);
+
+                const topScores = leaderboard.slice(0, limit).map((item, index) => ({
+                    rank: index + 1,
+                    ...item
+                }));
+
+                cc.log('[LeaderboardManager] 取得排行榜:', JSON.stringify(topScores));
+                return topScores;
             })
             .catch((err) => {
                 cc.error('[LeaderboardManager] 查詢失敗:', err.message, err.code);
