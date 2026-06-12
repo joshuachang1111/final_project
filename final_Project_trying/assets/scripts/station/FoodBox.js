@@ -32,13 +32,18 @@ const FoodBox = cc.Class({
     },
 
     _onPickup(player) {
+        // 防呆：game.fire 內 foodScale 偶爾會被 Cocos 編輯器 / 隊友存檔重置成 1，
+        // 1 = sprite 原生 1024×1024 → 食材在角色頭上爆大。正常值在 0.4–0.6。
+        // 拿到 >= 0.9 一律當成被重置，強制壓回 0.5（跟 script default 一致）。
+        const safeScale = this.foodScale >= 0.9 ? 0.5 : this.foodScale;
+
         const foodName = this._getFoodName();
         const itemNode = new cc.Node(foodName);
 
         itemNode.width = 100;
         itemNode.height = 100;
-        itemNode.setScale(this.foodScale);
-        itemNode._carryScale = this.foodScale;
+        itemNode.setScale(safeScale);
+        itemNode._carryScale = safeScale;
 
         const sprite = itemNode.addComponent(cc.Sprite);
         ItemSprites.applySpriteFrame(itemNode, foodName, this.foodSpriteFrame);

@@ -436,8 +436,11 @@ cc.Class({
                     itemNode.width  = 100;
                     itemNode.height = 100;
                     if (typeof station.foodScale === 'number') {
-                        itemNode.setScale(station.foodScale);
-                        itemNode._carryScale = station.foodScale;
+                        // 跟 FoodBox._onPickup 一樣的防呆：scene 內 foodScale 被誤寫成 1
+                        // 會讓 ghost item 在對方頭上爆大。>=0.9 視為被重置，壓回 0.5。
+                        const safeScale = station.foodScale >= 0.9 ? 0.5 : station.foodScale;
+                        itemNode.setScale(safeScale);
+                        itemNode._carryScale = safeScale;
                     }
                     const sprite = itemNode.addComponent(cc.Sprite);
                     ItemSprites.applySpriteFrame(itemNode, itemNode.name, station.foodSpriteFrame);

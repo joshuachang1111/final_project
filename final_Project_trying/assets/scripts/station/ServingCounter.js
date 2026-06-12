@@ -37,13 +37,6 @@ const ServingCounter = cc.Class({
         this._remoteStageOrderId = null;
         this._clearStagedItems();
         EventBus.emit('buffer:clear');
-        this._emitLockState();
-    },
-
-    _emitLockState() {
-        EventBus.emit('order:lock', {
-            id: this._currentSubmission ? this._currentSubmission.orderId : null,
-        });
     },
 
     _clearStagedItems() {
@@ -169,9 +162,6 @@ const ServingCounter = cc.Class({
             }
         }
 
-        // submission 鎖定/切換完成 → 通知 OrderContainer 把對應卡片邊框變紅
-        this._emitLockState();
-
         // 3. 處理食材入庫：把食材實體放在桌上方視覺反饋（不 destroy）
         this._currentSubmission.submittedItems.push(itemName);
         this._addStagedItem(item);
@@ -220,7 +210,6 @@ const ServingCounter = cc.Class({
         // 保險：emit buffer:clear 蓋掉舊 buffer UI 可能殘留
         EventBus.emit('buffer:clear');
         this._currentSubmission = null;
-        this._emitLockState();
     },
 
     _checkCompletion(submission) {

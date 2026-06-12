@@ -41,7 +41,6 @@ cc.Class({
             EventBus.on('order:added', this._onOrderAdded, this);
             EventBus.on('order:completed', this._onOrderRemoved, this);
             EventBus.on('order:expired', this._onOrderRemoved, this);
-            EventBus.on('order:lock', this._onOrderLock, this);
             cc.log('[OrderContainer] 訂單事件監聽已設置 (parent=' + parentName + ')');
         } else {
             cc.error('[OrderContainer] EventBus 不存在或沒有 on 方法！');
@@ -57,31 +56,7 @@ cc.Class({
             EventBus.off('order:added', this._onOrderAdded, this);
             EventBus.off('order:completed', this._onOrderRemoved, this);
             EventBus.off('order:expired', this._onOrderRemoved, this);
-            EventBus.off('order:lock', this._onOrderLock, this);
         }
-    },
-
-    // ServingCounter lock 到某張訂單 → 把該卡邊框畫紅；data.id=null → 清掉所有邊框
-    _onOrderLock(data) {
-        if (!this.node) return;
-        const targetId = data && data.id != null ? data.id : null;
-        this.node.children.forEach(orderNode => {
-            const isTarget = targetId != null && orderNode.name === 'order_' + targetId;
-            let border = orderNode.getChildByName('LockBorder');
-            if (!border) {
-                border = new cc.Node('LockBorder');
-                border.parent = orderNode;
-                border.zIndex = 200;
-                const ctx = border.addComponent(cc.Graphics);
-                const w = (orderNode.width || 200) + 30;
-                const h = (orderNode.height || 280) + 30;
-                ctx.lineWidth   = 14;
-                ctx.strokeColor = cc.color(255, 50, 50, 255);
-                ctx.rect(-w / 2, -h / 2, w, h);
-                ctx.stroke();
-            }
-            border.opacity = isTarget ? 255 : 0;
-        });
     },
 
     _onOrderAdded(data) {
