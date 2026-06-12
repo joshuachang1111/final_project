@@ -8,8 +8,9 @@
  *   - 透過 EventBus 廣播遊戲事件，不直接依賴 UI 或 Player
  */
 
-const EventBus  = require('../core/EventBus');
-const GridSystem = require('../core/GridSystem');
+const EventBus     = require('../core/EventBus');
+const GridSystem   = require('../core/GridSystem');
+const AudioManager = require('../core/AudioManager');
 
 /** 遊戲階段 */
 const Phase = {
@@ -46,6 +47,10 @@ const GameManager = cc.Class({
         }
         GameManager.instance = this;
         cc.game.addPersistRootNode(this.node);
+
+        // BGM bootstrap：保險再 ensure 一次。MenuManager 通常已先 ensure，
+        // debug 時直接 play game scene 也要有 BGM。
+        AudioManager.ensure();
 
         this._phase    = Phase.LOBBY;
         this._score    = 0;

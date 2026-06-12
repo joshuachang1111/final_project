@@ -147,26 +147,41 @@ const ResultSceneManager = cc.Class({
     // ── 遊戲結束 ──────────────────────────────────
 
     _onGameEnd(data) {
-        cc.log('[ResultSceneManager] 遊戲結束，分數:', data.score);
+        cc.log('[ResultSceneManager] 遊戲結束，分數:', data && data.score);
 
-        // 顯示分數 - 正中間，大字體
+        // 顯示分數
         if (this.scoreLabel) {
-            this.scoreLabel.string = data.score + ' 分';
-            this.scoreLabel.node.y = 150;  // 位置在正中間偏上
+            const bbr = window._burgerBattleResult;
+            if (bbr) {
+                // ── 漢堡對抗模式：顯示勝負 + 雙方分數 ──
+                let header;
+                if      (bbr.winner === 'P1')   header = '🏆 P1 獲勝！';
+                else if (bbr.winner === 'P2')   header = '🏆 P2 獲勝！';
+                else                             header = '⚖ 平局！';
+                this.scoreLabel.string = `${header}\nP1：${bbr.p1Score} 分\nP2：${bbr.p2Score} 分`;
+                this.scoreLabel.lineHeight = 60;
+            } else {
+                // ── 一般遊戲模式 ──
+                this.scoreLabel.string = (data && data.score !== undefined)
+                    ? data.score + ' 分'
+                    : '-- 分';
+            }
+            this.scoreLabel.node.y = 150;
         }
 
-        // Host 才上傳分數到排行榜
+        // Host 才上傳分數到排行榜（burger_battle 模式不上傳）
         const isHost = window._nmRole !== 'guest';
+        const isBurgerBattle = !!window._burgerBattleResult;
         cc.log('[ResultSceneManager] 診斷:');
         cc.log('  - window._nmRole=', window._nmRole);
         cc.log('  - isHost=', isHost);
         cc.log('  - window._fbUser=', !!window._fbUser);
 
-        if (isHost && window._fbUser) {
+        if (isHost && window._fbUser && !isBurgerBattle) {
             cc.log('[ResultSceneManager] ✓ 條件滿足，呼叫 _submitScore');
             this._submitScore(data.score);
         } else {
-            cc.log('[ResultSceneManager] ✗ 條件不滿足，不上傳分數');
+            cc.log('[ResultSceneManager] ✗ 不上傳（burger_battle 或條件不滿足）');
         }
     },
 
