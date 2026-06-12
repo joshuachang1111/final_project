@@ -40,6 +40,7 @@ const LeaderboardManager = {
 
     /**
      * 上傳玩家分數到 Firestore
+     * 同一玩家只保留最高分，分數更低時不上傳
      * @param {Object} scoreData { playerName, uid, score, level }
      * @returns {Promise} true 或 false
      */
@@ -68,19 +69,31 @@ const LeaderboardManager = {
 
         cc.log('[LeaderboardManager] ✓ 數據驗證通過，準備上傳:', { playerName, uid, score, level });
 
-        const docId = `${uid}_${Date.now()}`;
-        cc.log('[LeaderboardManager] 文件 ID:', docId);
+        const numScore = Number(score);
 
-        return this._db.collection('leaderboard').doc(docId).set({
-            name: playerName,
-            uid: uid,
-            score: Number(score),
-            level: level,
-            timestamp: new Date(),
-        })
-            .then(() => {
-                cc.log('[LeaderboardManager] ✓✓ 分數上傳成功！文件 ID:', docId);
-                return true;
+        return this._db.collection('leaderboard').doc(uid).get()
+            .then((docSnapshot) => {
+                if (docSnapshot.exists) {
+                    const existingScore = docSnapshot.data().score || 0;
+                    cc.log('[LeaderboardManager] 玩家已有記錄，現有分數:', existingScore, '新分數:', numScore);
+
+                    if (numScore <= existingScore) {
+                        cc.log('[LeaderboardManager] ℹ 新分數不高於現有最高分，不更新');
+                        return false;
+                    }
+                }
+
+                return this._db.collection('leaderboard').doc(uid).set({
+                    name: playerName,
+                    uid: uid,
+                    score: numScore,
+                    level: level,
+                    timestamp: new Date(),
+                }, { merge: true })
+                    .then(() => {
+                        cc.log('[LeaderboardManager] ✓✓ 分數上傳成功（或保持最高分）');
+                        return true;
+                    });
             })
             .catch((err) => {
                 cc.error('[LeaderboardManager] ✗✗ 上傳失敗:', err.code, err.message);
@@ -107,17 +120,22 @@ const LeaderboardManager = {
             .then((snapshot) => {
                 cc.log('[LeaderboardManager] 查詢完成，文件數=', snapshot.size);
 
-                const leaderboard = [];
+                const playerMap = {};
                 snapshot.forEach((doc) => {
                     const data = doc.data();
-                    cc.log('[LeaderboardManager] 文件:', data);
-                    leaderboard.push({
-                        name: data.name || '訪客',
-                        score: (typeof data.score === 'number') ? data.score : 0,
-                        level: data.level || 'unknown',
-                    });
+                    const uid = data.uid;
+                    const score = (typeof data.score === 'number') ? data.score : 0;
+
+                    if (!playerMap[uid] || score > playerMap[uid].score) {
+                        playerMap[uid] = {
+                            name: data.name || '訪客',
+                            score: score,
+                            level: data.level || 'unknown',
+                        };
+                    }
                 });
 
+                const leaderboard = Object.values(playerMap);
                 leaderboard.sort((a, b) => b.score - a.score);
 
                 const topScores = leaderboard.slice(0, limit).map((item, index) => ({
