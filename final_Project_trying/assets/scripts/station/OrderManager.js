@@ -29,6 +29,16 @@ const RECIPES = [
     { recipe: 'full_meal',       timeLimit: 90, reward: 250 },
 ];
 
+const LEVEL2_RECIPES = [
+    { recipe: 'box_iPhone',          timeLimit: 60, reward: 100 },
+    { recipe: 'box_Airpods',         timeLimit: 60, reward: 100 },
+    { recipe: 'box_charger',         timeLimit: 60, reward: 100 },
+    { recipe: 'box_iPhone_Airpods',  timeLimit: 75, reward: 150 },
+    { recipe: 'box_iPhone_charger',  timeLimit: 75, reward: 150 },
+    { recipe: 'box_Airpods_charger', timeLimit: 75, reward: 150 },
+    { recipe: 'box_all',             timeLimit: 90, reward: 250 },
+];
+
 // recipe → 所需食材（標準化後的名稱，與 ServingCounter._normalizeItemName 的 value 一致）
 const RECIPE_INGREDIENTS = {
     'hamburger': ['hamburger'],
@@ -38,6 +48,16 @@ const RECIPE_INGREDIENTS = {
     'toast_tea': ['chocolate_toast', 'black_tea'],
     'burger_toast': ['hamburger', 'chocolate_toast'],
     'full_meal': ['hamburger', 'black_tea', 'chocolate_toast'],
+};
+
+const LEVEL2_RECIPE_INGREDIENTS = {
+    'box_iPhone': ['box_iPhone'],
+    'box_Airpods': ['box_Airpods'],
+    'box_charger': ['box_charger'],
+    'box_iPhone_Airpods': ['box_iPhone_Airpods'],
+    'box_iPhone_charger': ['box_iPhone_charger'],
+    'box_Airpods_charger': ['box_Airpods_charger'],
+    'box_all': ['box_all'],
 };
 
 // recipe → 音效檔案路徑
@@ -54,6 +74,13 @@ const RECIPE_SOUNDS = {
 const MAX_ACTIVE_ORDERS = 3;   // 同時最多幾筆訂單
 const SPAWN_INTERVAL    = 15;  // 每幾秒產生一筆新訂單
 const EV_ORDER          = 22;  // Photon 事件碼：訂單同步（added / expired）
+const LEVEL2_KEY        = 'hansung';
+
+function isLevel2() {
+    return cc.sys && cc.sys.localStorage
+        ? cc.sys.localStorage.getItem('selectedLevel') === LEVEL2_KEY
+        : false;
+}
 
 // ─────────────────────────────────────────────────────────
 
@@ -64,7 +91,8 @@ const OrderManager = cc.Class({
         instance: null,
         // 讓外部可以查一筆 recipe 需要哪些食材（ServingCounter 用）
         getIngredients(recipe) {
-            return RECIPE_INGREDIENTS[recipe] || [recipe];
+            const ingredients = isLevel2() ? LEVEL2_RECIPE_INGREDIENTS : RECIPE_INGREDIENTS;
+            return ingredients[recipe] || [recipe];
         },
     },
 
@@ -156,7 +184,9 @@ const OrderManager = cc.Class({
         if (!this._isHost) return;
         if (this._orders.length >= MAX_ACTIVE_ORDERS) return;
 
-        const tmpl = RECIPES[Math.floor(Math.random() * RECIPES.length)];
+        const level2 = isLevel2();
+        const recipes = level2 ? LEVEL2_RECIPES : RECIPES;
+        const tmpl = recipes[Math.floor(Math.random() * recipes.length)];
         const spawnElapsed = GameManager.instance ? GameManager.instance.elapsed : 0;
         const order = {
             id:           this._nextId++,
@@ -169,7 +199,8 @@ const OrderManager = cc.Class({
 
         this._orders.push(order);
 
-        const soundFile = RECIPE_SOUNDS[order.recipe];
+        // 第二關訂單沒有音效；第一關維持原本的訂單音效。
+        const soundFile = level2 ? null : RECIPE_SOUNDS[order.recipe];
         if (soundFile) {
             const am = AudioManager.ensure ? AudioManager.ensure() : AudioManager.instance;
             if (am) {
@@ -248,7 +279,7 @@ const OrderManager = cc.Class({
         let minId   = Infinity;
         for (let i = 0; i < this._orders.length; i++) {
             const order       = this._orders[i];
-            const ingredients = RECIPE_INGREDIENTS[order.recipe] || [order.recipe];
+            const ingredients = OrderManager.getIngredients(order.recipe);
             if (ingredients.includes(ingredient) && order.id < minId) {
                 bestIdx = i;
                 minId   = order.id;

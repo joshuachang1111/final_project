@@ -201,6 +201,10 @@ const ServingCounter = cc.Class({
     },
 
     _getRequiredItems(recipe) {
+        if (OrderManager.getIngredients) {
+            return OrderManager.getIngredients(recipe);
+        }
+
         // 重要：這裡的名稱必須與你 FoodBox 或烹飪台最終產出的物品名稱一致
         const recipesMap = {
             'full_meal': ['hamburger', 'black_tea', 'chocolate_toast'],

@@ -1,0 +1,38 @@
+{
+  "ver": "2.3.7",
+  "uuid": "8e169016-8135-444c-bb06-06060faf83e6",
+  "importer": "texture",
+  "type": "sprite",
+  "wrapMode": "clamp",
+  "filterMode": "bilinear",
+  "premultiplyAlpha": false,
+  "genMipmaps": false,
+  "packable": true,
+  "width": 1254,
+  "height": 1254,
+  "platformSettings": {},
+  "subMetas": {
+    "factory_iphone": {
+      "ver": "1.0.6",
+      "uuid": "f12ab072-b328-42a9-95fe-132d7beeea82",
+      "importer": "sprite-frame",
+      "rawTextureUuid": "8e169016-8135-444c-bb06-06060faf83e6",
+      "trimType": "auto",
+      "trimThreshold": 1,
+      "rotated": false,
+      "offsetX": 5.5,
+      "offsetY": 3.5,
+      "trimX": 145,
+      "trimY": 208,
+      "width": 975,
+      "height": 831,
+      "rawWidth": 1254,
+      "rawHeight": 1254,
+      "borderTop": 0,
+      "borderBottom": 0,
+      "borderLeft": 0,
+      "borderRight": 0,
+      "subMetas": {}
+    }
+  }
+}
