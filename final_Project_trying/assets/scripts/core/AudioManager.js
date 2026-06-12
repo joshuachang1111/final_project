@@ -25,7 +25,22 @@ const MENU_SCENES = new Set(['menu', 'room', 'charselect', 'levelselect', 'leade
 const AudioManager = cc.Class({
     extends: cc.Component,
 
-    statics: { instance: null },
+    statics: {
+        instance: null,
+
+        // Self-bootstrap：場景檔（menu.fire）裡沒掛 AudioManager 節點時，由
+        // MenuManager / GameManager 之類的早期 onLoad 呼叫，動態建立一個節點
+        // addComponent，AudioManager 自己的 onLoad 會 addPersistRootNode。
+        // 已存在則直接回傳，重複呼叫安全。
+        ensure() {
+            if (AudioManager.instance) return AudioManager.instance;
+            const scene = cc.director.getScene();
+            if (!scene) return null;
+            const node = new cc.Node('AudioManager');
+            scene.addChild(node);
+            return node.addComponent(AudioManager);
+        },
+    },
 
     onLoad() {
         if (AudioManager.instance) {
@@ -45,8 +60,9 @@ const AudioManager = cc.Class({
         EventBus.on('game:start', this._onGameStart, this);
         EventBus.on('game:tick',  this._onGameTick,  this);
 
-        // 第一幀場景已是 menu，直接播 menu BGM
-        this._playBgm(BGM.MENU, true);
+        // 第一首 BGM 改用 _onSceneChanged 邏輯（依當前場景決定），避免之前 hardcode
+        // MENU：若 ensure() 是在 game 場景才呼叫，會錯誤播 menu BGM 直到 game:start。
+        this._onSceneChanged();
     },
 
     onDestroy() {
@@ -67,8 +83,10 @@ const AudioManager = cc.Class({
         cc.log('[AudioManager] 場景切換至:', name);
 
         if (name === 'game') {
-            // 進入遊戲場景：先播 bgm_game，等 game:start 才真正決定（已在 _onGameStart 處理）
-            // 不在這裡播，避免 game:start 之前場景還在載入
+            // 進 game 場景立刻切 bgm_game，guide 階段也吃 game BGM。
+            // EVENT_AFTER_SCENE_LAUNCH 觸發時場景已 launched，可以安全播。
+            // game:start 之後 _onGameStart 會再呼叫一次，但 _playBgm 內已防重播。
+            this._playBgm(BGM.GAME, true);
         } else if (name === 'result') {
             this._playBgm(BGM.RESULT, false);   // 結算不循環
         } else if (MENU_SCENES.has(name)) {
