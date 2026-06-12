@@ -48,10 +48,14 @@ const AudioManager = cc.Class({
             return;
         }
         AudioManager.instance = this;
+        window.AudioManager = this;
         cc.game.addPersistRootNode(this.node);
 
-        this._currentKey  = null;   // 目前播放的 BGM key（BGM.* 其中之一）
-        this._urgentDone  = false;  // 這局是否已切換過 urgent
+        this._currentKey   = null;   // 目前播放的 BGM key（BGM.* 其中之一）
+        this._urgentDone   = false;  // 這局是否已切換過 urgent
+        this._masterVolume = 1.0;    // 主音量（0-1）
+        this._musicVolume  = 1.0;    // 音樂音量（0-1）
+        this._sfxVolume    = 1.0;    // 音效音量（0-1）
 
         // 監聽場景切換
         cc.director.on(cc.Director.EVENT_AFTER_SCENE_LAUNCH, this._onSceneChanged, this);
@@ -140,7 +144,29 @@ const AudioManager = cc.Class({
     // ══════════════════════════════════════════
 
     setVolume(vol) {
-        cc.audioEngine.setMusicVolume(Math.max(0, Math.min(1, vol)));
+        this.setMusicVolume(vol);
+    },
+
+    setMasterVolume(vol) {
+        this._masterVolume = Math.max(0, Math.min(1, vol));
+        this._updateBgmVolume();
+        cc.log('[AudioManager] 主音量已設置:', this._masterVolume);
+    },
+
+    setMusicVolume(vol) {
+        this._musicVolume = Math.max(0, Math.min(1, vol));
+        this._updateBgmVolume();
+        cc.log('[AudioManager] 音樂音量已設置:', this._musicVolume);
+    },
+
+    setFxVolume(vol) {
+        this._sfxVolume = Math.max(0, Math.min(1, vol));
+        cc.log('[AudioManager] 音效音量已設置:', this._sfxVolume);
+    },
+
+    _updateBgmVolume() {
+        const finalVolume = this._masterVolume * this._musicVolume;
+        cc.audioEngine.setMusicVolume(finalVolume);
     },
 
     stop() {
@@ -154,8 +180,9 @@ const AudioManager = cc.Class({
                 cc.warn('[AudioManager] 音效載入失敗:', path, err);
                 return;
             }
-            cc.audioEngine.playEffect(clip, false);
-            cc.log('[AudioManager] 播放音效:', path);
+            const finalVolume = this._masterVolume * this._sfxVolume;
+            cc.audioEngine.playEffect(clip, false, finalVolume);
+            cc.log('[AudioManager] 播放音效:', path, '| 音量:', finalVolume);
         });
     },
 });
