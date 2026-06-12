@@ -2592,7 +2592,7 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 75,
+      "width": 150,
       "height": 50.4
     },
     "_anchorPoint": {
@@ -2644,8 +2644,8 @@
     ],
     "_srcBlendFactor": 770,
     "_dstBlendFactor": 771,
-    "_string": "路易莎",
-    "_N$string": "路易莎",
+    "_string": "漢堡組裝對抗",
+    "_N$string": "漢堡組裝對抗",
     "_fontSize": 25,
     "_lineHeight": 40,
     "_enableWrapText": true,
@@ -3140,7 +3140,7 @@
     "component": "",
     "_componentId": "6096b6hSyJLu7jld4sn3Ng7",
     "handler": "onLevelSelected",
-    "customEventData": "hansung"
+    "customEventData": "burger_battle"
   },
   {
     "__type__": "cc.Widget",

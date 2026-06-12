@@ -249,11 +249,26 @@ cc.Class({
     },
 
     _onStartGameEvent: function(msg) {
-        cc.log('[RoomManager] 開始遊戲，role=', window._nmRole);
+        cc.log('[RoomManager] 開始遊戲，role=', window._nmRole, 'level=', msg.level);
         cc.sys.localStorage.setItem('playerRole', msg.role);
         cc.sys.localStorage.setItem('selectedLevel', msg.level || 'susui');
-        const targetScene = window._nmRole === 'host' ? 'levelselect' : 'game';
-        cc.director.loadScene(targetScene);
+
+        if (window._nmRole === 'host') {
+            // Host 點開始後自己已經跳到 levelselect 了，這裡通常不會再觸發
+            cc.director.loadScene('levelselect');
+        } else {
+            // Guest：根據 Host 選的關卡決定目標場景
+            const LEVEL_SCENE_MAP = {
+                susui:         'game',
+                hansung:       'game',
+                shuimu:        'game',
+                fengyun:       'game',
+                burger_battle: 'burger_battle',
+            };
+            const targetScene = LEVEL_SCENE_MAP[msg.level] || 'game';
+            cc.log('[RoomManager] Guest 前往場景:', targetScene);
+            cc.director.loadScene(targetScene);
+        }
     },
 
     _onPlayerDisconnected: function() {
