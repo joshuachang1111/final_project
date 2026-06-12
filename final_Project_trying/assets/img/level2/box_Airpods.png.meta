@@ -1,0 +1,38 @@
+{
+  "ver": "2.3.7",
+  "uuid": "4bcbf157-17e1-4107-8b65-3b90be10a49f",
+  "importer": "texture",
+  "type": "sprite",
+  "wrapMode": "clamp",
+  "filterMode": "bilinear",
+  "premultiplyAlpha": false,
+  "genMipmaps": false,
+  "packable": true,
+  "width": 1024,
+  "height": 1024,
+  "platformSettings": {},
+  "subMetas": {
+    "box_Airpods": {
+      "ver": "1.0.6",
+      "uuid": "8cdd3e6d-ea24-4de5-bc50-de1f8a7ae46a",
+      "importer": "sprite-frame",
+      "rawTextureUuid": "4bcbf157-17e1-4107-8b65-3b90be10a49f",
+      "trimType": "auto",
+      "trimThreshold": 1,
+      "rotated": false,
+      "offsetX": 40.5,
+      "offsetY": -6.5,
+      "trimX": 140,
+      "trimY": 102,
+      "width": 825,
+      "height": 833,
+      "rawWidth": 1024,
+      "rawHeight": 1024,
+      "borderTop": 0,
+      "borderBottom": 0,
+      "borderLeft": 0,
+      "borderRight": 0,
+      "subMetas": {}
+    }
+  }
+}
