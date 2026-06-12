@@ -56,7 +56,7 @@ const ServingCounter = cc.Class({
         const idx = this._stagedItems.length;
         const spacing = 32;
         const totalWidth = (3 - 1) * spacing;
-        item.x = idx * spacing - totalWidth / 2;
+        item.x = this.itemOffsetX + idx * spacing - totalWidth / 2;
         item.y = this.itemOffsetY + 50;
         this._setItemDisplayOnStation(item);
         this._stagedItems.push(item);

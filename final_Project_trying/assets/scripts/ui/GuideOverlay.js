@@ -19,6 +19,9 @@ const RING_RADIUS   = 22;     // 進度圓圈半徑（px）
 const RING_WIDTH    = 5;      // 圓圈線寬
 const IMG_SIZE      = 580;    // 說明圖顯示大小（原圖 2048×2048，等比顯示不變形）
 
+const IMG_MAX_W     = 760;
+const IMG_MAX_H     = 580;
+
 const GuideOverlay = cc.Class({
     extends: cc.Component,
 
@@ -76,12 +79,14 @@ const GuideOverlay = cc.Class({
 
         // 關卡說明圖（正方形等比顯示，不變形）
         this._imgNode = new cc.Node('guideImage');
-        this._imgNode.setContentSize(IMG_SIZE, IMG_SIZE);
         this._imgNode.setPosition(0, 50);
         const imgSp = this._imgNode.addComponent(cc.Sprite);
         imgSp.sizeMode = cc.Sprite.SizeMode.CUSTOM;
         if (this.guideTexture) {
             imgSp.spriteFrame = new cc.SpriteFrame(this.guideTexture);
+            this._setGuideImageSize(this.guideTexture);
+        } else {
+            this._imgNode.setContentSize(IMG_SIZE, IMG_SIZE);
         }
         this.node.addChild(this._imgNode);
 
@@ -107,6 +112,14 @@ const GuideOverlay = cc.Class({
     // ══════════════════════════════════════════
     //  進度圓圈繪製
     // ══════════════════════════════════════════
+
+    _setGuideImageSize(texture) {
+        const texW = texture.width || IMG_SIZE;
+        const texH = texture.height || IMG_SIZE;
+        const scale = Math.min(IMG_MAX_W / texW, IMG_MAX_H / texH);
+
+        this._imgNode.setContentSize(texW * scale, texH * scale);
+    },
 
     _drawRing(progress) {
         const g = this._gfx;

@@ -47,7 +47,7 @@ const CookingStationBase = cc.Class({
 
         if (item) {
             item.parent = this.node;
-            item.x = 0;
+            item.x = this.itemOffsetX;
             item.y = this.itemOffsetY;
             this._setItemDisplayOnStation(item);
         }
@@ -139,7 +139,7 @@ const CookingStationBase = cc.Class({
 
         const labelNode = new cc.Node('CookTimerLabel');
         labelNode.parent = this.node;
-        labelNode.x = 0;
+        labelNode.x = this.itemOffsetX;
         labelNode.y = this.itemOffsetY + 45;
         labelNode.scale = 1 / (this.node.scale || 1);
 

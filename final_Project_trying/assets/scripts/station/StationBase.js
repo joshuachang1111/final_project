@@ -62,9 +62,21 @@ const StationBase = cc.Class({
             default: 1.45,
             tooltip: 'Station visual scale; collision stays grid based',
         },
+        visualOffsetX: {
+            default: 0,
+            tooltip: 'X offset for station visual position; grid collision stays unchanged',
+        },
+        visualOffsetY: {
+            default: 0,
+            tooltip: 'Y offset for station visual position; grid collision stays unchanged',
+        },
         itemScale: {
             default: 0.65,
             tooltip: 'Scale for items displayed on this station',
+        },
+        itemOffsetX: {
+            default: 0,
+            tooltip: 'X offset for items displayed on this station',
         },
         itemOffsetY: {
             default: 12,
@@ -74,8 +86,8 @@ const StationBase = cc.Class({
 
     onLoad() {
         const pos = GridSystem.toWorld(this.gridCol, this.gridRow);
-        this.node.x      = pos.x;
-        this.node.y      = pos.y;
+        this.node.x      = pos.x + this.visualOffsetX;
+        this.node.y      = pos.y + this.visualOffsetY;
         this.node.width  = GridSystem.getCellWidthAtRow(this.gridRow);
         this.node.height = GridSystem.CELL_H;
         this.node.scale  = this.visualScale;
@@ -136,7 +148,7 @@ const StationBase = cc.Class({
 
         if (item) {
             item.parent = this.node;
-            item.x = 0;
+            item.x = this.itemOffsetX;
             item.y = this.itemOffsetY;
             this._setItemDisplayOnStation(item);
         }

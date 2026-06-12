@@ -563,7 +563,7 @@ cc.Class({
                 cc.log('Bridge: ghost item 已轉移到 ServingCounter 桌上');
             } else {
                 ghost.parent = station.node;
-                ghost.x = 0;
+                ghost.x = station.itemOffsetX || 0;
                 ghost.y = (station.itemOffsetY || 0) + 50;
             }
         } else {
