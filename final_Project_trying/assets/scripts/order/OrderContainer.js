@@ -1,5 +1,6 @@
 const EventBus    = require('../core/EventBus');
 const GameManager = require('../core/GameManager');
+const ItemSprites = require('../station/ItemSpriteRegistry');
 
 // ── 圖片名稱對照表 ──────────────────────────────────────────
 const RECIPE_TO_IMAGE = {
@@ -10,6 +11,16 @@ const RECIPE_TO_IMAGE = {
     'chocolate_toast':      'order5',
     'black_tea':            'order6',
     'full_meal':            'order7'
+};
+
+const LEVEL2_RECIPE_ICONS = {
+    box_iPhone: ['iPhone_checked'],
+    box_Airpods: ['Airpods_checked'],
+    box_charger: ['charger_checked'],
+    box_iPhone_Airpods: ['iPhone_checked', 'Airpods_checked'],
+    box_iPhone_charger: ['iPhone_checked', 'charger_checked'],
+    box_Airpods_charger: ['Airpods_checked', 'charger_checked'],
+    box_all: ['iPhone_checked', 'Airpods_checked', 'charger_checked'],
 };
 // ─────────────────────────────────────────────────────────
 
@@ -89,6 +100,10 @@ cc.Class({
 
         // 2. 動態建立「食物圖片」
         const foodNode = new cc.Node('FoodIcon');
+        const level2Icons = LEVEL2_RECIPE_ICONS[data.recipe];
+        if (level2Icons) {
+            this._buildLevel2OrderIcons(foodNode, level2Icons);
+        } else {
         const spriteComp = foodNode.addComponent(cc.Sprite);
 
         const targetImageName = RECIPE_TO_IMAGE[data.recipe] || data.recipe;
@@ -113,16 +128,19 @@ cc.Class({
             cc.warn(`[OrderContainer] ✗ 找不到圖片資源: ${targetImageName}`);
             foodNode.setContentSize(120, 100);
         }
+        }
         
         // 調整食物稍微往下移，把上方的空間留給超大時間條
-        foodNode.setPosition(0, -20);
+        foodNode.setPosition(0, level2Icons ? 20 : -20);
         foodNode.parent = orderNode;
 
         // --- 新增：建立 Label 顯示時間 ---
         const labelNode = new cc.Node('TimeLabel');
         labelNode.parent = orderNode;
+        if (level2Icons) labelNode.setPosition(0, -170);
         labelNode.setPosition(0, -230); // 調整至你喜歡的 Y 軸高度
         const labelComp = labelNode.addComponent(cc.Label);
+        if (level2Icons) labelNode.setPosition(0, -170);
         labelComp.fontSize = 60;
         labelComp.string = Math.ceil(data.timeLeft) + 's';
         orderNode.timeLabel = labelComp; // 存起來，給 update 用
@@ -136,7 +154,7 @@ cc.Class({
         const barHeight = 40; 
 
         // 🎯 移到上面：定位在食物圖片的上方
-        barNode.setPosition(-barWidth / 2, (foodNode.height / 2) - 80);
+        barNode.setPosition(-barWidth / 2, level2Icons ? -80 : (foodNode.height / 2) - 80);
         
         const ctx = barNode.addComponent(cc.Graphics);
         orderNode.timeBarCtx = ctx; 
@@ -147,7 +165,7 @@ cc.Class({
         this._drawProgressBar(ctx, barWidth, barHeight, 1.0); 
 
         // 調整主節點總尺寸（給予足夠的 Layout 空間避免重疊）
-        orderNode.setContentSize(barWidth, foodNode.height + barHeight + 40);
+        orderNode.setContentSize(barWidth, level2Icons ? 230 : foodNode.height + barHeight + 40);
 
         // 通知 Layout 重新排隊
         const layout = this.node.getComponent(cc.Layout);
@@ -206,6 +224,43 @@ cc.Class({
     },
 
     // ── 🎨 核心繪圖邏輯（灰色底、綠色隨時間由右向左減少） ──
+    _buildLevel2OrderIcons(foodNode, iconNames) {
+        const iconSize = 72;
+        const spacing = 62;
+        const width = Math.max(120, (iconNames.length - 1) * spacing + iconSize);
+
+        foodNode.setContentSize(width, 100);
+
+        iconNames.forEach((iconName, index) => {
+            const iconNode = new cc.Node('Icon_' + iconName);
+            const sprite = iconNode.addComponent(cc.Sprite);
+            sprite.sizeMode = cc.Sprite.SizeMode.CUSTOM;
+            iconNode.parent = foodNode;
+            iconNode.setContentSize(iconSize, iconSize);
+            iconNode.x = index * spacing - ((iconNames.length - 1) * spacing / 2);
+            iconNode.y = 0;
+
+            this._loadSpriteFromRegistry(sprite, iconNode, iconName);
+        });
+    },
+
+    _loadSpriteFromRegistry(spriteComp, node, itemName) {
+        const uuid = ItemSprites.ITEM_SPRITE_UUIDS && ItemSprites.ITEM_SPRITE_UUIDS[itemName];
+        if (!uuid || !cc.assetManager || !cc.assetManager.loadAny) {
+            cc.warn('[OrderContainer] 找不到第二關訂單圖片:', itemName);
+            return;
+        }
+
+        cc.assetManager.loadAny({ uuid }, (err, asset) => {
+            if (err || !asset || !cc.isValid(node) || !cc.isValid(spriteComp.node)) {
+                if (err) cc.warn('[OrderContainer] 第二關訂單圖片載入失敗:', itemName, err);
+                return;
+            }
+
+            spriteComp.spriteFrame = asset;
+        });
+    },
+
     _drawProgressBar(ctx, w, h, ratio) {
         ctx.clear();
 
