@@ -208,7 +208,6 @@ const OrderManager = cc.Class({
             // 即使本地 _orders 找不到（race 期間被洗掉、或本地已自行過期），仍要 emit
             // order:expired 通知 OrderContainer 移除 UI；否則訂單卡在畫面上不消失。
             const idx = this._orders.findIndex(o => o.id === data.id);
-<<<<<<< HEAD
             let recipe = null;
             if (idx >= 0) {
                 const order = this._orders[idx];
@@ -219,13 +218,6 @@ const OrderManager = cc.Class({
                 cc.log('[OrderRemove] path=NET-EXPIRED-FROM-HOST id=', data.id, '本地 _orders 找不到，僅通知 UI 移除');
             }
             EventBus.emit('order:expired', { id: data.id, recipe });
-=======
-            if (idx === -1) return;
-            const order = this._orders[idx];
-            this._orders.splice(idx, 1);
-            cc.log('[OrderRemove] path=NET-EXPIRED-FROM-HOST id=', order.id);
-            EventBus.emit('order:expired', { id: order.id, recipe: order.recipe });
->>>>>>> origin/feature/buffer
         }
     },
 

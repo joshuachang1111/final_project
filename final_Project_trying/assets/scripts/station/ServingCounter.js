@@ -8,6 +8,52 @@ const ServingCounter = cc.Class({
     onLoad() {
         if (StationBase.prototype.onLoad) StationBase.prototype.onLoad.call(this);
         this._currentSubmission = null;
+        // 已放但還沒湊齊的食材實體 sprite，堆在桌上方供視覺反饋。
+        // 不再用畫面中央的 Buffer UI（位置奇怪、會擋畫面）。
+        this._stagedItems = [];
+        // 當鎖定的訂單過期/被完成時，要把當前 submission 一起重置 + 清掉桌上殘留，
+        // 順便保險 emit buffer:clear 蓋掉舊版本可能殘留的中央 buffer UI。
+        this._onOrderRemoved = this._onOrderRemoved.bind(this);
+        EventBus.on('order:expired', this._onOrderRemoved);
+        EventBus.on('order:completed', this._onOrderRemoved);
+    },
+
+    onDestroy() {
+        EventBus.off('order:expired', this._onOrderRemoved);
+        EventBus.off('order:completed', this._onOrderRemoved);
+        if (StationBase.prototype.onDestroy) StationBase.prototype.onDestroy.call(this);
+    },
+
+    _onOrderRemoved(data) {
+        if (!this._currentSubmission) return;
+        if (data && data.id !== this._currentSubmission.orderId) return;
+        cc.log('[ServingCounter] 鎖定訂單', data && data.id, '已被移除，重置 submission 並清桌上食材');
+        this._currentSubmission = null;
+        this._clearStagedItems();
+        EventBus.emit('buffer:clear');
+    },
+
+    _clearStagedItems() {
+        if (!this._stagedItems) { this._stagedItems = []; return; }
+        for (const it of this._stagedItems) {
+            if (it && cc.isValid(it)) it.destroy();
+        }
+        this._stagedItems = [];
+    },
+
+    _addStagedItem(item) {
+        if (!item) return;
+        item.parent = this.node;
+        // 水平排列在桌上方一點，最多 3 個（full_meal 上限）。
+        // ServingCounter 透過 StationBase 應用 visualScale=1.45，桌子本身大約一格寬，
+        // 在桌上方 +50 的 y 偏移可以避開站台底圖、又不會跑出畫面。
+        const idx = this._stagedItems.length;
+        const spacing = 32;
+        const totalWidth = (3 - 1) * spacing;
+        item.x = idx * spacing - totalWidth / 2;
+        item.y = this.itemOffsetY + 50;
+        this._setItemDisplayOnStation(item);
+        this._stagedItems.push(item);
     },
 
     _normalizeItemName(itemName) {
@@ -39,6 +85,8 @@ const ServingCounter = cc.Class({
             if (!order) {
                 cc.log('⚠️ 訂單已過期/不存在，重置 submission');
                 this._currentSubmission = null;
+                this._clearStagedItems();
+                EventBus.emit('buffer:clear');
             } else {
                 // 成品直接結案檢查
                 if (itemName === this._currentSubmission.recipe) {
@@ -85,10 +133,9 @@ const ServingCounter = cc.Class({
             }
         }
 
-        // 3. 處理食材入庫
+        // 3. 處理食材入庫：把食材實體放在桌上方視覺反饋（不 destroy）
         this._currentSubmission.submittedItems.push(itemName);
-        item.destroy();
-        EventBus.emit('buffer:update', { items: this._currentSubmission.submittedItems });
+        this._addStagedItem(item);
 
         // 4. 檢查是否湊齊
         if (this._checkCompletion(this._currentSubmission)) {
@@ -98,15 +145,16 @@ const ServingCounter = cc.Class({
 
     _completeSubmission(item) {
         if (item) item.destroy();
-        
+        this._clearStagedItems();
+
         // 1. 先記錄 ID 並執行訂單消耗邏輯
         const orderId = this._currentSubmission.orderId;
         const recipe = this._currentSubmission.recipe;
         const result = OrderManager.instance.consumeOrderById(orderId);
-        
+
         if (result.found) {
             EventBus.emit('order:completed', { id: orderId, recipe: recipe });
-            
+
             // 使用安全呼叫，避免因為找不到 GameManager 而崩潰
             if (typeof GameManager !== 'undefined' && GameManager.instance) {
                 GameManager.instance.addScore(result.reward);
@@ -114,12 +162,9 @@ const ServingCounter = cc.Class({
                 cc.log('[ServingCounter] GameManager 未定義，無法加分，但訂單已處理');
             }
         }
-        
-        // 2. 這兩行是 UI 消失的關鍵，必須確保執行
-        cc.log('[ServingCounter] 發送 buffer:clear');
+
+        // 保險：emit buffer:clear 蓋掉舊 buffer UI 可能殘留
         EventBus.emit('buffer:clear');
-        
-        // 3. 重置狀態
         this._currentSubmission = null;
     },
 

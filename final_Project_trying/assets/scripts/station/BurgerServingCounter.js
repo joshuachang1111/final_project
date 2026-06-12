@@ -11,6 +11,7 @@
 
 const GridSystem   = require('../core/GridSystem');
 const StationBase  = require('./StationBase');
+const EventBus     = require('../core/EventBus');
 
 // station_serving_counter sprite UUID（img/level1/工作臺/station_serving_counter.png subMeta）
 const SERVING_SPRITE_UUID = '85cb1bb9-75a6-4ba1-9684-014d33706372';
@@ -79,6 +80,10 @@ const BurgerServingCounter = cc.Class({
             BBM.instance.addScore(player.playerId, 150);
         }
         cc.log(`[BurgerServing] P${player.playerId} 送出漢堡！+150 分`);
+
+        // 廣播給對方：BB 模式沒走 EV_STATION 'place' 路徑，對方端的 remote player
+        // 不會自動 drop。靠這個事件讓 GNB 廣播 EV_BB_SERVE，對方端 drop + destroy。
+        EventBus.emit('bb:local_serve', { playerId: player.playerId });
     },
 
     // ── 視覺 ─────────────────────────────────────────────────

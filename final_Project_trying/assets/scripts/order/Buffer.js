@@ -15,16 +15,36 @@ cc.Class({
     onLoad() {
         EventBus.on('buffer:update', this._onBufferUpdate, this);
         EventBus.on('buffer:clear', this._onBufferClear, this);
-        this.node.opacity = 0; // 初始隱藏
+        // 訂單系統有時候會走「sub-order 過期」/ 訂單取消 / refresh 等路徑，
+        // 那些地方不一定每條都 emit buffer:clear。掛上 order 端的事件，當任何
+        // 訂單被移除時，也順便把 buffer 清掉（保險）。
+        EventBus.on('order:completed', this._onBufferClear, this);
+        EventBus.on('order:expired', this._onBufferClear, this);
+        // 場景進入時保險清一次
+        this._forceHide();
     },
 
     onDestroy() {
         EventBus.off('buffer:update', this._onBufferUpdate, this);
         EventBus.off('buffer:clear', this._onBufferClear, this);
+        EventBus.off('order:completed', this._onBufferClear, this);
+        EventBus.off('order:expired', this._onBufferClear, this);
+    },
+
+    _forceHide() {
+        if (!this.node) return;
+        this.node.removeAllChildren();
+        this.node.opacity = 0;
+        this.node.active = false;
     },
 
     _onBufferUpdate(data) {
-        this.node.removeAllChildren(); 
+        // 邊界：items 為空 → 視同 clear，避免空 buffer 殘留
+        if (!data || !data.items || data.items.length === 0) {
+            this._forceHide();
+            return;
+        }
+        this.node.removeAllChildren();
         this.node.opacity = 255;
         this.node.active = true;
 
@@ -64,9 +84,7 @@ cc.Class({
     },
 
     _onBufferClear() {
-        cc.log('[BufferingUI] 收到清空指令'); // 修正了這裡的拼字
-        this.node.removeAllChildren();
-        this.node.opacity = 0; 
-        this.node.active = false; 
+        cc.log('[BufferingUI] 收到清空指令');
+        this._forceHide();
     }
 });
