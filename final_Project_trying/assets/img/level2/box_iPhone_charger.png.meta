@@ -1,0 +1,38 @@
+{
+  "ver": "2.3.7",
+  "uuid": "3d583a8d-d383-47a3-9772-395717250ace",
+  "importer": "texture",
+  "type": "sprite",
+  "wrapMode": "clamp",
+  "filterMode": "bilinear",
+  "premultiplyAlpha": false,
+  "genMipmaps": false,
+  "packable": true,
+  "width": 1024,
+  "height": 1024,
+  "platformSettings": {},
+  "subMetas": {
+    "box_iPhone_charger": {
+      "ver": "1.0.6",
+      "uuid": "15f77458-b804-4547-b72a-7cf1e92ec228",
+      "importer": "sprite-frame",
+      "rawTextureUuid": "3d583a8d-d383-47a3-9772-395717250ace",
+      "trimType": "auto",
+      "trimThreshold": 1,
+      "rotated": false,
+      "offsetX": 23,
+      "offsetY": -6.5,
+      "trimX": 105,
+      "trimY": 102,
+      "width": 860,
+      "height": 833,
+      "rawWidth": 1024,
+      "rawHeight": 1024,
+      "borderTop": 0,
+      "borderBottom": 0,
+      "borderLeft": 0,
+      "borderRight": 0,
+      "subMetas": {}
+    }
+  }
+}

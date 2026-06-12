@@ -1,0 +1,38 @@
+{
+  "ver": "2.3.7",
+  "uuid": "8663e185-eca1-44e5-b74a-4061b48922f2",
+  "importer": "texture",
+  "type": "sprite",
+  "wrapMode": "clamp",
+  "filterMode": "bilinear",
+  "premultiplyAlpha": false,
+  "genMipmaps": false,
+  "packable": true,
+  "width": 1024,
+  "height": 1024,
+  "platformSettings": {},
+  "subMetas": {
+    "box_Airpods_charger": {
+      "ver": "1.0.6",
+      "uuid": "5d9dd313-8ca5-44c1-84f1-a24b2cf81d87",
+      "importer": "sprite-frame",
+      "rawTextureUuid": "8663e185-eca1-44e5-b74a-4061b48922f2",
+      "trimType": "auto",
+      "trimThreshold": 1,
+      "rotated": false,
+      "offsetX": 44,
+      "offsetY": 117,
+      "trimX": 123,
+      "trimY": 6,
+      "width": 866,
+      "height": 778,
+      "rawWidth": 1024,
+      "rawHeight": 1024,
+      "borderTop": 0,
+      "borderBottom": 0,
+      "borderLeft": 0,
+      "borderRight": 0,
+      "subMetas": {}
+    }
+  }
+}

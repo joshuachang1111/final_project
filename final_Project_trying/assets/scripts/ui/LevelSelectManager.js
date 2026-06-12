@@ -1,8 +1,9 @@
 const LEVEL_SCENE_MAP = {
-    susui:   'game',
-    hansung: 'game2',
-    shuimu:  'game',
-    fengyun: 'game',
+    susui:         'game',
+    hansung:       'game2',
+    shuimu:        'game',
+    fengyun:       'game',
+    burger_battle: 'burger_battle',   // 漢堡組裝對抗模式
 };
 
 cc.Class({
@@ -91,7 +92,7 @@ cc.Class({
         cc.sys.localStorage.setItem('playerRole', window._nmRole || 'guest');
 
         // 立即進遊戲（同步由 GameNetworkBridge 負責）
-        cc.log('[LevelSelectManager] Guest 立即進遊戲');
+        cc.log('[LevelSelectManager] Guest 立即進遊戲, scene=', sceneName);
         cc.director.loadScene(sceneName);
     },
 

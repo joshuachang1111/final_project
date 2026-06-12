@@ -41,6 +41,8 @@ const StationBase = cc.Class({
 
     statics: {
         StationType,
+        // 全域站台查找表（key = "col,row"），供無 GameManager 場景（burger_battle）使用
+        _registry: null,
     },
 
     properties: {
@@ -78,7 +80,15 @@ const StationBase = cc.Class({
         this.node.height = GridSystem.CELL_H;
         this.node.scale  = this.visualScale;
 
+        cc.log(`[DEBUG] Station: ${this.node.name}`);
+    cc.log(`Grid(Col:${this.gridCol}, Row:${this.gridRow}) -> Target World(x:${pos.x}, y:${pos.y})`);
+    cc.log(`Actual Position: (x:${this.node.x}, y:${this.node.y})`);
+
         GridSystem.setBlocked(this.gridCol, this.gridRow, true);
+
+        // 加入全域 registry（burger_battle 等無 GameManager 場景使用）
+        if (!StationBase._registry) StationBase._registry = new Map();
+        StationBase._registry.set(`${this.gridCol},${this.gridRow}`, this);
 
         if (GameManager.instance) {
             GameManager.instance.registerStation(this.gridCol, this.gridRow, this);
@@ -88,6 +98,7 @@ const StationBase = cc.Class({
     },
 
     onDestroy() {
+        if (StationBase._registry) StationBase._registry.delete(`${this.gridCol},${this.gridRow}`);
         GridSystem.setBlocked(this.gridCol, this.gridRow, false);
     },
 

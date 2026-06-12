@@ -6,7 +6,7 @@ const RECIPE_TO_IMAGE = {
     'burger_tea':           'order1',
     'toast_tea':            'order2',
     'burger_toast':         'order3',
-    'burger':               'order4',
+    'hamburger':               'order4',
     'chocolate_toast':      'order5',
     'black_tea':            'order6',
     'full_meal':            'order7'

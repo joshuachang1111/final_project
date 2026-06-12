@@ -1,4 +1,5 @@
 const LeaderboardManager = require('../core/LeaderboardManager');
+const AudioManager       = require('../core/AudioManager');
 
 const FIREBASE_CONFIG = {
     apiKey:            'AIzaSyAJKvWVAepCItXJxTpj5LKohYunVr1K1xM',
@@ -29,6 +30,9 @@ cc.Class({
     },
 
     onLoad() {
+        // BGM bootstrap：場景檔沒掛 AudioManager 節點，這裡動態建一個。
+        AudioManager.ensure();
+
         // 確保彈出面板預設都是隱藏的
         if (this.nicknamePanel) this.nicknamePanel.active = false;
 

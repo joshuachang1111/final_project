@@ -20,7 +20,7 @@ const GameManager     = require('../core/GameManager');
 const InputHandler    = require('../input/InputHandler');
 const BoarController  = require('./BoarController');
 
-const SPEED             = 150;
+const SPEED             = 350;
 const PLAYER_HALF_W     = 20;
 const PLAYER_HALF_H     = 14;
 const NET_SEND_INTERVAL = 0.05;   // 20 Hz
@@ -159,12 +159,28 @@ const PlayerController = cc.Class({
         if (this._chaosTimer > 0) this._chaosTimer -= dt;
 
         if (input.isJustPressed(id, A.INTERACT)) {
-            this._tryInteract();
+            const BBM = require('../ui/BurgerBattleManager');
+            if (BBM && BBM.instance) {
+                // 漢堡對抗：空手先嘗試從帶子撿食材（近身感應）；拿著東西就走向站台
+                if (!this.isCarrying()) {
+                    if (!this._tryPickupFromBelt()) {
+                        this._tryInteract();
+                    }
+                } else {
+                    this._tryInteract();
+                }
+            } else {
+                this._tryInteract();
+            }
         }
 
         if (input.isJustPressed(id, A.SKILL)) {
-            cc.log('[Skill] E 鍵偵測到，呼叫 _useSkill');
-            this._useSkill();
+            // 漢堡對抗模式禁用技能
+            const BBM = require('../ui/BurgerBattleManager');
+            if (!BBM || !BBM.instance) {
+                cc.log('[Skill] E 鍵偵測到，呼叫 _useSkill');
+                this._useSkill();
+            }
         }
 
         // 網路同步
@@ -360,9 +376,50 @@ const PlayerController = cc.Class({
         const { col, row } = GridSystem.toGrid(this._px, this._py);
         const targetCol = col + this._facing.dc;
         const targetRow = row + this._facing.dr;
-        if (!GameManager.instance) return;
-        const station = GameManager.instance.getStation(targetCol, targetRow);
+
+        let station = null;
+        if (GameManager.instance) {
+            station = GameManager.instance.getStation(targetCol, targetRow);
+        } else {
+            // burger_battle 等無 GameManager 場景：回落到 StationBase._registry
+            const StationBase = require('../station/StationBase');
+            if (StationBase._registry) {
+                station = StationBase._registry.get(`${targetCol},${targetRow}`) || null;
+            }
+        }
         if (station) station.onInteract(this);
+    },
+
+    /** 從輸送帶近身撿起食材（burger_battle 專用）。回傳 true = 成功撿起 */
+    _tryPickupFromBelt() {
+        // 單機模式只讓 P1 操作；多人模式由 _nmRole 守門
+        if (!window._nmRole && this.playerId !== 1) return false;
+
+        const ConveyorBelt = require('../core/ConveyorBelt');
+        const EventBus     = require('../core/EventBus');
+        for (const belt of ConveyorBelt.instances) {
+            if (!belt || !cc.isValid(belt.node)) continue;
+            const item = belt.getNearestItem(this._px, this._py, 90);
+            if (item) {
+                const beltIdx  = item._beltIdx;
+                const foodType = item._foodType;
+                belt.removeItem(item);
+                this.pickUp(item);
+                // 廣播給對方：從 col 帶子移除 index 為 beltIdx 的食材，
+                // 並夾帶 foodType 讓對方端把 remote player 也設成持有此食材，
+                // 否則對方後續走 _applyRemoteStation 'place' 會走 fallback proxy
+                // 建立空白 sprite，桌上看起來像空的。
+                EventBus.emit('bb:local_pickup', {
+                    col:      belt.beltCol,
+                    idx:      beltIdx,
+                    foodType: foodType,
+                    playerId: this.playerId,
+                });
+                cc.log(`[Burger] P${this.playerId} 撿起 ${item._foodType} idx=${beltIdx}`);
+                return true;
+            }
+        }
+        return false;
     },
 
     // ── 持有 API ──────────────────────────────────────────
@@ -400,6 +457,110 @@ const PlayerController = cc.Class({
             .to(0.08, { x, y })
             .call(() => { this._px = this.node.x; this._py = this.node.y; })
             .start();
+    },
+
+    // ── 漢堡對抗互動 ─────────────────────────────────────────
+
+    /**
+     * 漢堡對抗模式專用 F 鍵互動。
+     * 單機測試只讓 P1 操作；多人模式由 _nmRole 管控。
+     *
+     * 優先順序：
+     *  1. 持有完成漢堡 → 找自己的送餐台送出
+     *  2. 持有食材     → 找自己的組裝台放置
+     *  3. 空手 + 組裝台完成 → 取走漢堡
+     *  4. 空手         → 從輸送帶撿起食材
+     *  5. 以上皆無     → 丟棄手中物品（若有）
+     */
+    _tryBurgerInteract() {
+        // 單機模式：只讓 P1 操作
+        if (!window._nmRole && this.playerId !== 1) return;
+
+        const BurgerStation        = require('../station/BurgerStation');
+        const BurgerServingCounter = require('../station/BurgerServingCounter');
+        const ConveyorBelt         = require('../core/ConveyorBelt');
+        const BBM                  = require('../ui/BurgerBattleManager');
+
+        const px   = this._px;
+        const py   = this._py;
+        const pid  = this.playerId;
+
+        // 目前所在格子（col 用於組裝台 / 送餐台的欄位比對）
+        const { col: playerCol, row: playerRow } = GridSystem.toGrid(px, py);
+
+        const holding  = this._carryState === CarryState.HOLDING;
+        const heldFood = this._heldItem ? this._heldItem._foodType : null;
+
+        // ── 1. 持有完成漢堡 → 送餐台 ──────────────────────────
+        if (holding && heldFood === 'burger_complete') {
+            for (const counter of BurgerServingCounter.instances) {
+                if (!counter || !cc.isValid(counter.node)) continue;
+                if (counter.ownerId !== pid) continue;
+                // 同欄且 row 在 2~4 之間即可觸發
+                if (playerCol === counter.counterCol &&
+                    playerRow >= 2 && playerRow <= 4) {
+                    const burger = this.dropItem();
+                    if (burger && cc.isValid(burger)) burger.destroy();
+                    if (BBM.instance) BBM.instance.addScore(pid, 150);
+                    cc.log(`[Burger] P${pid} 送出漢堡！+150 分`);
+                    return;
+                }
+            }
+            // 拿著漢堡但沒有靠近送餐台，不做其他動作
+            cc.log(`[Burger] P${pid} 拿著漢堡，找到送餐台（col=${pid===1?4:5} row~3）再按 F`);
+            return;
+        }
+
+        // ── 2. 持有食材 → 組裝台 ──────────────────────────────
+        if (holding && heldFood !== 'burger_complete') {
+            for (const st of BurgerStation.instances) {
+                if (!st || !cc.isValid(st.node)) continue;
+                if (st.ownerId !== pid) continue;
+                if (playerCol === st.stationCol) {
+                    if (st.tryPlaceIngredient(heldFood)) {
+                        const item = this.dropItem();
+                        if (item && cc.isValid(item)) item.destroy();
+                        return;
+                    } else {
+                        cc.log(`[Burger] P${pid} ${heldFood} 不符合下一步，需要 ${st.nextNeeded()}`);
+                        return;
+                    }
+                }
+            }
+            // 不在組裝欄 → 丟棄
+            const discarded = this.dropItem();
+            if (discarded && cc.isValid(discarded)) discarded.destroy();
+            cc.log(`[Burger] P${pid} 丟棄 ${heldFood}`);
+            return;
+        }
+
+        // ── 3. 空手 + 組裝台完成 → 取走漢堡 ──────────────────
+        for (const st of BurgerStation.instances) {
+            if (!st || !cc.isValid(st.node)) continue;
+            if (st.ownerId !== pid) continue;
+            if (playerCol === st.stationCol && st.isCompleted()) {
+                const burgerNode = st.takeCompletedBurger();
+                if (burgerNode) {
+                    this.pickUp(burgerNode);
+                    cc.log(`[Burger] P${pid} 取走完成漢堡`);
+                    return;
+                }
+            }
+        }
+
+        // ── 4. 空手 → 從輸送帶撿食材 ─────────────────────────
+        for (const belt of ConveyorBelt.instances) {
+            if (!belt || !cc.isValid(belt.node)) continue;
+            const item = belt.getNearestItem(px, py, 90);
+            if (item) {
+                belt.removeItem(item);
+                this.pickUp(item);
+                cc.log(`[Burger] P${pid} 撿起 ${item._foodType}`);
+                return;
+            }
+        }
+
+        cc.log(`[Burger] P${pid} 附近沒有可互動的東西`);
     },
 
     // ── Getter（用一般方法，避免 cc.Class getter 報錯）───
