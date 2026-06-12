@@ -20,7 +20,7 @@ const GameManager     = require('../core/GameManager');
 const InputHandler    = require('../input/InputHandler');
 const BoarController  = require('./BoarController');
 
-const SPEED             = 150;
+const SPEED             = 350;
 const PLAYER_HALF_W     = 20;
 const PLAYER_HALF_H     = 14;
 const NET_SEND_INTERVAL = 0.05;   // 20 Hz

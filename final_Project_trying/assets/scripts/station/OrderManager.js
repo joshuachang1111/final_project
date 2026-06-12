@@ -9,12 +9,9 @@
  *     但不會 emit expired，最後實際移除是等 Host 廣播 expired 或是 EV_SERVE。
  *
  * 配對策略：
- *   - completeOrder / consumeOrderById / consumeOrderByRecipe 都改成「剩餘時間最少」
- *     優先。原本用 findIndex（== 最舊 id）會出現「我端了 burger#8 (60s)，但畫面上
- *     burger#5 (10s) 消失」這種 UX bug，因為 findIndex 只看順序不看時間。
- *   - 改成 lowest timeLeft 也比較符合「最急的訂單先被消化」的直覺。
- *
- * 完成 / 出餐的同步走 EV_SERVE（在 GameNetworkBridge），這裡只負責訂單列表與廣播。
+ *   - 只交最先生成的（id 最小）且該訂單的 recipe 包含此食材的那筆訂單。
+ *   - ServingCounter 放入食材時，先鎖定「最舊的、包含此食材的訂單」作為目標，
+ *     後續食材只能繼續補同一筆訂單，直到湊齊或放棄。
  */
 
 const EventBus    = require('../core/EventBus');
@@ -22,18 +19,31 @@ const GameManager = require('../core/GameManager');
 
 // ── 訂單設定 ──────────────────────────────────────────────
 const RECIPES = [
-    { recipe: 'burger',          timeLimit: 60, reward: 100 },
-    { recipe: 'chocolate_toast', timeLimit: 50, reward: 80 },
-    { recipe: 'black_tea',       timeLimit: 40, reward: 70 },
+    { recipe: 'hamburger',          timeLimit: 60, reward: 100 },
+    { recipe: 'chocolate_toast', timeLimit: 50, reward: 80  },
+    { recipe: 'black_tea',       timeLimit: 40, reward: 70  },
     { recipe: 'burger_tea',      timeLimit: 70, reward: 150 },
     { recipe: 'toast_tea',       timeLimit: 60, reward: 120 },
     { recipe: 'burger_toast',    timeLimit: 70, reward: 160 },
     { recipe: 'full_meal',       timeLimit: 90, reward: 250 },
 ];
 
-const MAX_ACTIVE_ORDERS = 3;   // 同時最多幾筆訂單
-const SPAWN_INTERVAL    = 15;  // 每幾秒產生一筆新訂單
-const EV_ORDER          = 22;  // Photon 事件碼：訂單同步（added / expired）
+// recipe → 所需食材（標準化後的名稱，與 ServingCounter._normalizeItemName 的 value 一致）
+
+const RECIPE_INGREDIENTS = {
+    'hamburger': ['hamburger'],
+    'chocolate_toast': ['chocolate_toast'],
+    'black_tea': ['black_tea'],
+    'burger_tea': ['hamburger', 'black_tea'],
+    'toast_tea': ['chocolate_toast', 'black_tea'],
+    'burger_toast': ['hamburger', 'chocolate_toast'],
+    'full_meal': ['hamburger', 'black_tea', 'chocolate_toast'],
+};
+
+
+const MAX_ACTIVE_ORDERS = 3;
+const SPAWN_INTERVAL    = 15;
+const EV_ORDER          = 22;
 
 // ─────────────────────────────────────────────────────────
 
@@ -42,6 +52,10 @@ const OrderManager = cc.Class({
 
     statics: {
         instance: null,
+        // 讓外部可以查一筆 recipe 需要哪些食材（ServingCounter 用）
+        getIngredients(recipe) {
+            return RECIPE_INGREDIENTS[recipe] || [recipe];
+        },
     },
 
     onLoad() {
@@ -51,16 +65,14 @@ const OrderManager = cc.Class({
         }
         OrderManager.instance = this;
 
-        this._orders = [];
-        this._nextId = 0;
+        this._orders  = [];
+        this._nextId  = 0;
         this._started = false;
 
-        EventBus.on('game:start',    this._onGameStart,       this);
-        EventBus.on('game:end',      this._onGameEnd,         this);
-        EventBus.on('order:refresh', this._onRefreshOrder,    this);
+        EventBus.on('game:start',    this._onGameStart,    this);
+        EventBus.on('game:end',      this._onGameEnd,      this);
+        EventBus.on('order:refresh', this._onRefreshOrder, this);
 
-        // 訂閱 NM 的 game_event 來接收 Host 的訂單廣播。
-        // Host 也會綁但會被 _isHost 過濾掉，無害。
         if (window._nm) {
             this._onNetworkOrderEvent = this._onNetworkOrderEvent.bind(this);
             window._nm.on('game_event', this._onNetworkOrderEvent);
@@ -78,14 +90,9 @@ const OrderManager = cc.Class({
     },
 
     _onGameStart() {
-        // 每場重新評估角色，避免 onLoad 時 _nmRole 還沒設好
         this._isHost = (window._nmRole !== 'guest');
-
-        // Idempotent：unschedule 後再 schedule，防止 game:start 被重複 emit 時雙重排程
         this.unschedule(this._spawnOrder);
 
-        // 已啟動過就不再清空 _orders，避免 race（Guest 收到 code 22 後才收到本地
-        // game:start）把已同步的訂單給洗掉
         if (!this._started) {
             this._orders = [];
             this._nextId = 0;
@@ -102,16 +109,10 @@ const OrderManager = cc.Class({
 
     _onGameEnd() {
         this.unschedule(this._spawnOrder);
-        this._orders = [];
+        this._orders  = [];
         this._started = false;
     },
 
-    // 兩邊都會跑：
-    //   Host: 倒數 → 到 0 emit expired + 廣播
-    //   Guest: 倒數 → 到 0 只 clamp，不 emit，不廣播（讓 Host 主導 expire）
-    //
-    // 計時改用 GameManager.elapsed (wall-clock 已扣掉 pause)，視窗最小化恢復後
-    // 訂單剩餘時間自動補上錯過的秒數，跟主時間器一致。
     update(dt) {
         if (!this._started || !this._orders.length) return;
         if (!GameManager.instance) return;
@@ -119,10 +120,9 @@ const OrderManager = cc.Class({
 
         for (let i = this._orders.length - 1; i >= 0; i--) {
             const order = this._orders[i];
-            if (typeof order.spawnElapsed === 'number' && typeof order.timeLimit === 'number') {
+            if (typeof order.spawnElapsed === 'number') {
                 order.timeLeft = Math.max(0, order.timeLimit - (currentElapsed - order.spawnElapsed));
             } else {
-                // Fallback：沒有 spawnElapsed 的舊訂單
                 order.timeLeft -= dt;
                 if (order.timeLeft < 0) order.timeLeft = 0;
             }
@@ -130,16 +130,12 @@ const OrderManager = cc.Class({
             if (order.timeLeft <= 0) {
                 if (this._isHost) {
                     this._orders.splice(i, 1);
-                    cc.log('[OrderRemove] path=UPDATE-EXPIRE id=', order.id, 'recipe=', order.recipe, 'timeLeft=', order.timeLeft.toFixed(2));
+                    cc.log('[OrderRemove] path=UPDATE-EXPIRE id=', order.id, 'recipe=', order.recipe);
                     EventBus.emit('order:expired', { id: order.id, recipe: order.recipe });
                     if (window._nm) {
-                        window._nm.sendGameEvent(EV_ORDER, {
-                            action: 'expired',
-                            id:     order.id,
-                        });
+                        window._nm.sendGameEvent(EV_ORDER, { action: 'expired', id: order.id });
                     }
                 } else {
-                    // Guest：clamp 等 Host 廣播
                     order.timeLeft = 0;
                 }
             }
@@ -162,7 +158,6 @@ const OrderManager = cc.Class({
         };
 
         this._orders.push(order);
-
         EventBus.emit('order:added', {
             id:        order.id,
             recipe:    order.recipe,
@@ -184,17 +179,14 @@ const OrderManager = cc.Class({
 
     _onNetworkOrderEvent(msg) {
         if (!msg || msg.code !== EV_ORDER || !msg.data) return;
-        if (this._isHost) return;  // Host 不處理自己的廣播
+        if (this._isHost) return;
 
         const data = msg.data;
         if (data.action === 'added') {
             if (this._orders.some(o => o.id === data.id)) return;
-            // 反算 spawnElapsed 對齊 Host 的時間軸：
-            // timeLimit - (currentElapsed - spawnElapsed) = data.timeLeft
-            // → spawnElapsed = currentElapsed - (timeLimit - data.timeLeft)
-            const timeLimit = data.timeLimit || data.timeLeft;
+            const timeLimit      = data.timeLimit || data.timeLeft;
             const currentElapsed = GameManager.instance ? GameManager.instance.elapsed : 0;
-            const spawnElapsed = currentElapsed - (timeLimit - data.timeLeft);
+            const spawnElapsed   = currentElapsed - (timeLimit - data.timeLeft);
 
             const order = {
                 id:           data.id,
@@ -211,90 +203,80 @@ const OrderManager = cc.Class({
                 timeLeft:  order.timeLeft,
                 timeLimit: order.timeLimit,
             });
+
         } else if (data.action === 'expired') {
             const idx = this._orders.findIndex(o => o.id === data.id);
             if (idx === -1) return;
             const order = this._orders[idx];
             this._orders.splice(idx, 1);
-            cc.log('[OrderRemove] path=NET-EXPIRED-FROM-HOST id=', order.id, 'recipe=', order.recipe, 'timeLeft=', order.timeLeft.toFixed(2));
+            cc.log('[OrderRemove] path=NET-EXPIRED-FROM-HOST id=', order.id);
             EventBus.emit('order:expired', { id: order.id, recipe: order.recipe });
         }
     },
 
-    // 內部 helper：在同名 recipe 中挑剩餘時間最少的那筆
-    _findMostUrgentIdx(recipe) {
-        let idx = -1;
-        let minTime = Infinity;
+    // ── 核心查詢 ──────────────────────────────────────────
+    // 找「最先生成（id 最小）且 recipe 包含指定食材」的訂單 index。
+    // ingredient 是標準化後的食材名稱（如 'bread'、'black_tea'）。
+    _findOldestOrderWithIngredient(ingredient) {
+        let bestIdx = -1;
+        let minId   = Infinity;
         for (let i = 0; i < this._orders.length; i++) {
-            if (this._orders[i].recipe === recipe && this._orders[i].timeLeft < minTime) {
-                idx = i;
-                minTime = this._orders[i].timeLeft;
+            const order       = this._orders[i];
+            const ingredients = RECIPE_INGREDIENTS[order.recipe] || [order.recipe];
+            if (ingredients.includes(ingredient) && order.id < minId) {
+                bestIdx = i;
+                minId   = order.id;
             }
         }
-        return idx;
+        return bestIdx;
+    },
+
+    // 直接用 id 查（ServingCounter 鎖定訂單後用）
+    getOrderById(id) {
+        return this._orders.find(o => o.id === id) || null;
     },
 
     // ── 技能二：二退 ──────────────────────────────────────
-    // 只有 Host 執行，移除第一筆訂單並立刻生成新訂單
     _onRefreshOrder() {
         if (!this._isHost) return;
         if (!this._orders.length) return;
 
-        // 移除第一筆（不扣分）
         const order = this._orders.shift();
-        cc.log('[OrderRemove] path=SKILL_2-REFRESH id=', order.id, 'recipe=', order.recipe, 'timeLeft=', order.timeLeft.toFixed(2));
+        cc.log('[OrderRemove] path=SKILL_2-REFRESH id=', order.id);
         EventBus.emit('order:expired', { id: order.id, recipe: order.recipe });
         if (window._nm) {
             window._nm.sendGameEvent(EV_ORDER, { action: 'expired', id: order.id });
         }
 
-        // 立刻生出新訂單
         this._spawnOrder();
     },
 
-    // 給 ServingCounter（本地玩家出餐）用：挑最急的同名訂單完成、加分、回傳被消掉的 order
-    completeOrder(recipe) {
-        const idx = this._findMostUrgentIdx(recipe);
-        if (idx === -1) return null;
+    // ── 出餐 API ──────────────────────────────────────────
+    // ServingCounter 湊齊後呼叫：移除、加分、廣播 completed。
+    consumeOrderById(id) {
+        const idx = this._orders.findIndex(o => o.id === id);
+        if (idx === -1) return { id, reward: 0, found: false };
 
         const order = this._orders[idx];
         this._orders.splice(idx, 1);
+        cc.log('[OrderRemove] path=SERVE-BY-ID id=', order.id, 'recipe=', order.recipe,
+               'timeLeft=', order.timeLeft.toFixed(2));
 
-        cc.log('[OrderRemove] path=LOCAL-SERVE id=', order.id, 'recipe=', order.recipe, 'timeLeft=', order.timeLeft.toFixed(2));
-        EventBus.emit('order:completed', {
-            id:     order.id,
-            recipe: order.recipe,
-        });
-
+        EventBus.emit('order:completed', { id: order.id, recipe: order.recipe });
         if (GameManager.instance) {
             GameManager.instance.addScore(order.reward || 100);
         }
-        return order;
+        return { id: order.id, reward: order.reward || 100, found: true };
     },
 
-    // 給 GameNetworkBridge._applyRemoteServe 用：對方出餐時直接用 id 移除
-    // (避免 race：可能本地 update 已經把該 order 過期掉了，那就 no-op)
-    consumeOrderById(id) {
+    // 給 GameNetworkBridge._applyRemoteServe 用（遠端出餐，不重複加分）
+    consumeOrderByIdRemote(id) {
         const idx = this._orders.findIndex(o => o.id === id);
         if (idx === -1) return { id, reward: 0, found: false };
         const order = this._orders[idx];
         this._orders.splice(idx, 1);
-        cc.log('[OrderRemove] path=REMOTE-SERVE-BY-ID id=', order.id, 'recipe=', order.recipe, 'timeLeft=', order.timeLeft.toFixed(2));
+        cc.log('[OrderRemove] path=REMOTE-SERVE-BY-ID id=', order.id, 'recipe=', order.recipe);
         return { id: order.id, reward: order.reward || 100, found: true };
-    },
-
-    // 舊 API：依 recipe 找最急的並消掉（保留向後相容；新流程都改用 consumeOrderById）
-    consumeOrderByRecipe(recipe) {
-        const idx = this._findMostUrgentIdx(recipe);
-        if (idx === -1) return { id: -1, reward: 0 };
-        const order = this._orders[idx];
-        this._orders.splice(idx, 1);
-        cc.log('[OrderRemove] path=REMOTE-SERVE-BY-RECIPE id=', order.id, 'recipe=', order.recipe, 'timeLeft=', order.timeLeft.toFixed(2));
-        return { id: order.id, reward: order.reward || 100 };
-    },
-
-    consumeOrder(recipe) {
-        return this.consumeOrderByRecipe(recipe).reward;
     },
 
     getOrders() { return (this._orders || []).slice(); },
