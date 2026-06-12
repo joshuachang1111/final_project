@@ -29,6 +29,14 @@ const VideoManager = {
             return;
         }
 
+        // 影片播放期間關掉背景音樂。
+        // stop() 同時清除 _currentKey，等到 room 場景載入時
+        // AudioManager._onSceneChanged 會偵測到 menu 場景並自動重新播 bgm_menu。
+        const AudioManager = require('../core/AudioManager');
+        if (AudioManager.instance) {
+            AudioManager.instance.stop();
+        }
+
         const canvas = cc.find('Canvas');
         if (!canvas) {
             cc.warn('[VideoManager] 找不到 Canvas，直接執行 callback');
@@ -48,6 +56,7 @@ const VideoManager = {
         const finish = () => {
             if (_done) return;
             _done = true;
+            this._removeSkipBtn();           // 清掉 DOM 按鈕
             if (cc.isValid(overlay)) overlay.destroy();
             this._overlayNode = null;
             onComplete && onComplete();
@@ -102,54 +111,73 @@ const VideoManager = {
             // 某些平台不發 ready-to-play，直接呼叫也安全
             vp.play();
 
-            // ── 跳過按鈕（右上角）────────────────────────────
-            this._buildSkipBtn(overlay, finish);
+            // ── 跳過按鈕：HTML DOM 元素，才能蓋過 VideoPlayer DOM ──
+            this._buildSkipBtn(finish);
         });
     },
 
     /** 強制 HTML5 video 元素使用 object-fit:fill（Stretch）*/
     _forceStretch(vp) {
         try {
-            // CC 2.4.x 內部 video 元素掛在 vp._video 或 vp._videoPlayer._video
             const el = (vp._video) || (vp._videoPlayer && vp._videoPlayer._video);
             if (el && el.style) {
                 el.style.objectFit = 'fill';
                 el.style.width     = '100%';
                 el.style.height    = '100%';
             }
-        } catch(e) {
-            // native 平台無此 API，忽略
-        }
+        } catch(e) { /* native 平台無此 API，忽略 */ }
     },
 
-    /** 建立跳過按鈕（右上角） */
-    _buildSkipBtn(parent, onSkip) {
-        const btn = new cc.Node('SkipBtn');
-        btn.setContentSize(110, 38);
-        btn.setPosition(W / 2 - 68, H / 2 - 26);
-        btn.zIndex = 2;
-        btn.color  = cc.color(0, 0, 0, 180);
+    /**
+     * 用原生 DOM 建跳過按鈕。
+     * cc.VideoPlayer 在 web 上是 HTML 元素，會蓋住所有 Cocos 節點；
+     * 只有同樣是 DOM 元素並設更高 z-index 才能顯示在影片上方。
+     */
+    _buildSkipBtn(onSkip) {
+        if (typeof document === 'undefined') return;  // 非 web 平台
 
-        const bg = btn.addComponent(cc.Sprite);
-        bg.sizeMode = cc.Sprite.SizeMode.CUSTOM;
+        const btn = document.createElement('div');
+        btn.id = 'vm-skip-btn';
+        btn.textContent = '跳過  ▶';
+        btn.style.cssText = [
+            'position:fixed',
+            'top:46px',
+            'right:20px',
+            'z-index:999999',
+            'padding:6px 18px',
+            'background:rgba(0,0,0,0.65)',
+            'color:#fff',
+            'font-size:18px',
+            'font-family:sans-serif',
+            'cursor:pointer',
+            'border-radius:4px',
+            'border:1px solid rgba(255,255,255,0.35)',
+            'user-select:none',
+            '-webkit-user-select:none',
+        ].join(';');
 
-        const lblNode = new cc.Node('Lbl');
-        const lbl     = lblNode.addComponent(cc.Label);
-        lbl.string             = '跳過  ▶';
-        lbl.fontSize           = 18;
-        lbl.horizontalAlign    = cc.Label.HorizontalAlign.CENTER;
-        lbl.verticalAlign      = cc.Label.VerticalAlign.CENTER;
-        lblNode.color          = cc.Color.WHITE;
-        btn.addChild(lblNode);
+        const handler = () => {
+            this._removeSkipBtn();
+            onSkip();
+        };
+        btn.addEventListener('click',    handler);
+        btn.addEventListener('touchend', handler);
 
-        btn.addComponent(cc.Button);
-        btn.on(cc.Node.EventType.TOUCH_END, onSkip, this);
+        document.body.appendChild(btn);
+        this._skipBtnEl = btn;
+    },
 
-        parent.addChild(btn);
+    /** DOM 跳過按鈕清除 */
+    _removeSkipBtn() {
+        if (this._skipBtnEl) {
+            try { this._skipBtnEl.parentNode.removeChild(this._skipBtnEl); } catch(e) {}
+            this._skipBtnEl = null;
+        }
     },
 
     /** 強制停止並清除（換場景前可呼叫） */
     stop() {
+        this._removeSkipBtn();
         if (this._overlayNode && cc.isValid(this._overlayNode)) {
             this._overlayNode.destroy();
         }
