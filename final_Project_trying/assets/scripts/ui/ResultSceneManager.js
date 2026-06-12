@@ -20,6 +20,13 @@
 const EventBus = require('../core/EventBus');
 const LeaderboardManager = require('../core/LeaderboardManager');
 
+const LEVEL_SCENE_MAP = {
+    susui:   'game',
+    hansung: 'game2',
+    shuimu:  'game',
+    fengyun: 'game',
+};
+
 const FIREBASE_CONFIG = {
     apiKey:            'AIzaSyAJKvWVAepCItXJxTpj5LKohYunVr1K1xM',
     authDomain:        'overcook-37ac5.firebaseapp.com',
@@ -275,10 +282,12 @@ const ResultSceneManager = cc.Class({
         if (this._clicked) return;
         this._clicked = true;
         cc.log('[ResultSceneManager] Guest 從 result 直接補進 game, level=', msg.level);
-        cc.sys.localStorage.setItem('selectedLevel', msg.level || 'susui');
+        const levelId = msg.level || 'susui';
+        const sceneName = LEVEL_SCENE_MAP[levelId] || 'game';
+        cc.sys.localStorage.setItem('selectedLevel', levelId);
         cc.sys.localStorage.setItem('playerRole', window._nmRole || 'guest');
         EventBus.clear();
-        cc.director.loadScene('game');
+        cc.director.loadScene(sceneName);
     },
 
     onCloseLeaderboard() {

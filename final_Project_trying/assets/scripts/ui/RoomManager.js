@@ -1,3 +1,10 @@
+const LEVEL_SCENE_MAP = {
+    susui:   'game',
+    hansung: 'game2',
+    shuimu:  'game',
+    fengyun: 'game',
+};
+
 /**
  * RoomManager  (cc.Component)
  * 掛在 room.fire 場景根節點上
@@ -251,8 +258,9 @@ cc.Class({
     _onStartGameEvent: function(msg) {
         cc.log('[RoomManager] 開始遊戲，role=', window._nmRole);
         cc.sys.localStorage.setItem('playerRole', msg.role);
-        cc.sys.localStorage.setItem('selectedLevel', msg.level || 'susui');
-        const targetScene = window._nmRole === 'host' ? 'levelselect' : 'game';
+        const levelId = msg.level || 'susui';
+        cc.sys.localStorage.setItem('selectedLevel', levelId);
+        const targetScene = window._nmRole === 'host' ? 'levelselect' : (LEVEL_SCENE_MAP[levelId] || 'game');
         cc.director.loadScene(targetScene);
     },
 

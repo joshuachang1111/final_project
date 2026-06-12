@@ -1660,7 +1660,7 @@
     "component": "",
     "_componentId": "6096b6hSyJLu7jld4sn3Ng7",
     "handler": "onLevelSelected",
-    "customEventData": "hansung"
+    "customEventData": "susui"
   },
   {
     "__type__": "cc.Node",
