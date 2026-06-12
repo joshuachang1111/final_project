@@ -355,7 +355,7 @@
     "_dstBlendFactor": 771,
     "_string": "Label",
     "_N$string": "Label",
-    "_fontSize": 40,
+    "_fontSize": 25,
     "_lineHeight": 40,
     "_enableWrapText": true,
     "_N$file": null,
@@ -389,14 +389,14 @@
     "_opacity": 255,
     "_color": {
       "__type__": "cc.Color",
-      "r": 255,
-      "g": 255,
-      "b": 255,
+      "r": 0,
+      "g": 0,
+      "b": 0,
       "a": 255
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 97.87,
+      "width": 61.17,
       "height": 50.4
     },
     "_anchorPoint": {
@@ -408,8 +408,8 @@
       "__type__": "TypedArray",
       "ctor": "Float64Array",
       "array": [
-        -7.547,
-        82.9,
+        0,
+        84.978,
         0,
         0,
         0,
@@ -556,8 +556,8 @@
       "__type__": "TypedArray",
       "ctor": "Float64Array",
       "array": [
-        -122.025,
-        -119.723,
+        -240,
+        -150,
         0,
         0,
         0,
@@ -927,8 +927,8 @@
       "__type__": "TypedArray",
       "ctor": "Float64Array",
       "array": [
-        117.581,
-        -131.833,
+        240,
+        -150,
         0,
         0,
         0,
@@ -1744,7 +1744,7 @@
     "_srcBlendFactor": 770,
     "_dstBlendFactor": 771,
     "_spriteFrame": {
-      "__uuid__": "5bbe0972-6b9f-488e-a9cb-61bbcd057cff"
+      "__uuid__": "f22efb61-b5f0-46e1-a9f5-06844daed2d1"
     },
     "_type": 0,
     "_sizeMode": 0,
