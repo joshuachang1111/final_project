@@ -47,7 +47,7 @@ const RECIPE_SOUNDS = {
     'black_tea':       'audio/blacktea',
     'burger_tea':      'audio/Burger_tea',
     'toast_tea':       'audio/Toast_Tea',
-    'burger_toast':    'audio/burger_Toast',
+    'burger_toast':    'audio/burger_toast',
     'full_meal':       'audio/full_meal',
 };
 
@@ -250,6 +250,47 @@ const OrderManager = cc.Class({
             const order       = this._orders[i];
             const ingredients = RECIPE_INGREDIENTS[order.recipe] || [order.recipe];
             if (ingredients.includes(ingredient) && order.id < minId) {
+                bestIdx = i;
+                minId   = order.id;
+            }
+        }
+        return bestIdx;
+    },
+
+    // ServingCounter 用：優先選「recipe 完全等於 itemName」的訂單（成品直接交對應單），
+    // 如果沒有，再退回 _findOldestOrderWithIngredient（湊單路徑）。
+    // 修這個 bug：之前只看 ingredient 包含，導致 hamburger 成品被舊的 burger_tea 單
+    // 截住變成湊單第一步，hamburger 單自己過期，看起來像「時間沒到就被刪」。
+    _findBestOrderForItem(itemName) {
+        let bestIdx = -1;
+        let minId   = Infinity;
+        for (let i = 0; i < this._orders.length; i++) {
+            const order = this._orders[i];
+            if (order.recipe === itemName && order.id < minId) {
+                bestIdx = i;
+                minId   = order.id;
+            }
+        }
+        if (bestIdx !== -1) return bestIdx;
+        return this._findOldestOrderWithIngredient(itemName);
+    },
+
+    // 找「能容納指定食材清單作為部分進度」的最舊訂單。
+    // ServingCounter 切換 submission 用：玩家中途換主意（先 black_tea 後 chocolate_toast），
+    // 用這個找到能同時容納兩者的訂單（例如 toast_tea），把鎖定的訂單從 burger_tea 切過去。
+    _findOrderContainingAll(items) {
+        let bestIdx = -1;
+        let minId   = Infinity;
+        for (let i = 0; i < this._orders.length; i++) {
+            const order  = this._orders[i];
+            const needed = (RECIPE_INGREDIENTS[order.recipe] || [order.recipe]).slice();
+            let allFit = true;
+            for (const it of items) {
+                const idx = needed.indexOf(it);
+                if (idx === -1) { allFit = false; break; }
+                needed.splice(idx, 1);
+            }
+            if (allFit && order.id < minId) {
                 bestIdx = i;
                 minId   = order.id;
             }
