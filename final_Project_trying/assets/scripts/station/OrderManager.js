@@ -247,6 +247,16 @@ const OrderManager = cc.Class({
                 reward:       data.reward || 100,
             };
             this._orders.push(order);
+
+            // Guest 端也要播訂單音效（_spawnOrder 只在 host 跑、不會經過這條 path）。
+            // 第二關沒音效，跟 host 端邏輯一致。
+            const level2 = isLevel2();
+            const soundFile = level2 ? null : RECIPE_SOUNDS[order.recipe];
+            if (soundFile) {
+                const am = AudioManager.ensure ? AudioManager.ensure() : AudioManager.instance;
+                if (am) am.playEffect(soundFile);
+            }
+
             EventBus.emit('order:added', {
                 id:        order.id,
                 recipe:    order.recipe,
