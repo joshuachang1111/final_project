@@ -206,19 +206,53 @@ cc.Class({
         if (this.masterVolumeSlider) {
             this.masterVolumeSlider.progress = masterVolume;
             this.masterVolumeSlider.node.on('slide', this._onMasterVolumeChange, this);
+            this._addSliderLabel(this.masterVolumeSlider, '主音量');
         }
 
         if (this.musicVolumeSlider) {
             this.musicVolumeSlider.progress = musicVolume;
             this.musicVolumeSlider.node.on('slide', this._onMusicVolumeChange, this);
+            this._addSliderLabel(this.musicVolumeSlider, '音樂');
         }
 
         if (this.sfxVolumeSlider) {
             this.sfxVolumeSlider.progress = sfxVolume;
             this.sfxVolumeSlider.node.on('slide', this._onSfxVolumeChange, this);
+            this._addSliderLabel(this.sfxVolumeSlider, '音效');
         }
 
         cc.log('[SettingsManager] 音量設定初始化完成', { masterVolume, musicVolume, sfxVolume });
+    },
+
+    // 在 slider 左側掛上一個說明文字 label（runtime 建立，不用動 scene 檔）。
+    // 用深色字 + 白色 outline，確保深色 / 淺色背景都看得清。
+    _addSliderLabel(slider, text) {
+        if (!slider || !slider.node) return;
+        if (slider.node.getChildByName('SliderLabel')) return; // 已存在不重複建
+
+        const labelNode = new cc.Node('SliderLabel');
+        labelNode.parent = slider.node;
+        labelNode.zIndex = 10;
+
+        const lbl = labelNode.addComponent(cc.Label);
+        lbl.string         = text;
+        lbl.fontSize       = 32;
+        lbl.lineHeight     = 36;
+        lbl.horizontalAlign = cc.Label.HorizontalAlign.RIGHT;
+        lbl.verticalAlign   = cc.Label.VerticalAlign.CENTER;
+
+        labelNode.color = cc.color(40, 40, 40, 255);
+        if (cc.LabelOutline) {
+            const outline = labelNode.addComponent(cc.LabelOutline);
+            outline.color = cc.color(255, 255, 255, 255);
+            outline.width = 2;
+        }
+
+        // 放在 slider 左側（距離 slider 左緣再外推 110，避免跟滑塊重疊）
+        const halfW = (slider.node.width || 200) / 2;
+        labelNode.setAnchorPoint(1, 0.5);
+        labelNode.x = -halfW - 20;
+        labelNode.y = 0;
     },
 
     _onMasterVolumeChange(slider) {

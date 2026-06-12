@@ -36,8 +36,66 @@ cc.Class({
         // 確保彈出面板預設都是隱藏的
         if (this.nicknamePanel) this.nicknamePanel.active = false;
 
+        // Runtime patch NicknamePanel 內的文字 / 顏色（不動 menu.fire，避免改錯其他地方）
+        this._patchNicknamePanel();
+
         this._initFirebase();
         this._showMain();
+    },
+
+    _patchNicknamePanel() {
+        if (!this.nicknamePanel) return;
+        const black = cc.color(0, 0, 0, 255);
+        const panel = this.nicknamePanel;
+
+        // 把整個 NicknamePanel 往上移
+        panel.y = (panel.y || 0) + 120;
+
+        // 強制 EditBox 顯示 + 提高 zIndex，避免被其他 UI 蓋住
+        if (this.nicknameInput) {
+            const ebNode = this.nicknameInput.node;
+            ebNode.active = true;
+            ebNode.opacity = 255;
+            ebNode.zIndex = 50;
+            cc.log('[MenuManager] EditBox 狀態: active=', ebNode.active,
+                'opacity=', ebNode.opacity,
+                'pos=', ebNode.x.toFixed(1), ebNode.y.toFixed(1),
+                'size=', ebNode.width, '×', ebNode.height,
+                'parent=', ebNode.parent && ebNode.parent.name);
+        } else {
+            cc.warn('[MenuManager] nicknameInput 沒綁定！EditBox 找不到');
+        }
+
+        // 檢查節點是否在 EditBox 內部子樹（PLACEHOLDER_LABEL / TEXT_LABEL），是的話跳過
+        const isInsideEditBox = (node) => {
+            let n = node && node.parent;
+            while (n && n !== panel) {
+                if (n.getComponent(cc.EditBox)) return true;
+                n = n.parent;
+            }
+            return false;
+        };
+
+        // 改面板內所有 cc.Label（跳過 EditBox 內部，避免把 placeholder 改成「歡迎！」導致格子顯示異常）
+        const labels = panel.getComponentsInChildren(cc.Label);
+        labels.forEach(lbl => {
+            if (isInsideEditBox(lbl.node)) return;
+            if (lbl.string === '設定暱稱') {
+                // 標題改黑色
+                lbl.node.color = black;
+            } else if (lbl.string === 'Label') {
+                // 預設未改過字的 Label → 改成「歡迎！」
+                lbl.string = '歡迎！';
+                lbl.node.color = black;
+            }
+        });
+
+        // 改面板內所有 cc.Button 的內嵌 Label → 「確認」
+        const buttons = panel.getComponentsInChildren(cc.Button);
+        buttons.forEach(btn => {
+            const btnLabel = btn.node.getComponentInChildren(cc.Label);
+            if (btnLabel) btnLabel.string = '確認';
+        });
     },
 
     // ── Firebase ─────────────────────────────────────
