@@ -75,6 +75,13 @@ const ResultSceneManager = cc.Class({
     onLoad() {
         cc.log('[ResultSceneManager] onLoad');
 
+        // 結尾動畫：video overlay 疊在場景上方，結算 UI 在背景初始化；
+        // 影片播完或跳過後 overlay 自動移除，結算畫面立刻可見。
+        const VideoManager = require('./VideoManager');
+        VideoManager.play('ending_video', () => {
+            cc.log('[ResultSceneManager] 結尾動畫結束，顯示結算畫面');
+        });
+
         // 初始化 Firebase（如果還沒初始化）
         this._initFirebase();
 
