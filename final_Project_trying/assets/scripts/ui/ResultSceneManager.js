@@ -176,11 +176,13 @@ const ResultSceneManager = cc.Class({
                 this._buildBBSideScores(bbr);
             } else {
                 // ── 一般遊戲模式 ──
-                // 原本 y=150 蓋「遊戲結束」標題；移到獎狀內偏底（細紋上方），
-                // 避開主要文字，並改白字以對比深色細紋帶。
+                // 放在獎狀「中間右邊」的空白區，避開中央文字跟底部細紋帶。
                 this.scoreLabel.node.active = true;
                 this.scoreLabel.node.color = cc.color(255, 255, 255, 255);
-                this.scoreLabel.node.y = -200;
+                this.scoreLabel.node.x = 310;
+                this.scoreLabel.node.y = 0;
+                this.scoreLabel.fontSize  = 90;
+                this.scoreLabel.lineHeight = 100;
                 this.scoreLabel.string = (data && data.score !== undefined)
                     ? data.score + ' 分'
                     : '-- 分';
