@@ -7709,7 +7709,7 @@
     },
     "_enabled": true,
     "playerId": 2,
-    "startCol": 4,
+    "startCol": 9,
     "startRow": 4,
     "boarPrefab": {
       "__uuid__": "09221494-9340-465b-b246-250564481dcd"

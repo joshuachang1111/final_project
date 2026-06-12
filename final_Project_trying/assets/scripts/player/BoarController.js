@@ -84,6 +84,7 @@ const BoarController = cc.Class({
         let nx = this.node.x + this._vx * dt;
         let ny = this.node.y + this._vy * dt;
 
+        // ── 地板邊界 ────────────────────────────────────────
         const xb = GridSystem.getFloorXBoundsAtWorldY(this.node.y);
         if (nx - BOAR_HALF_W < xb.left) {
             nx = xb.left + BOAR_HALF_W;
@@ -105,11 +106,62 @@ const BoarController = cc.Class({
             this._syncDirName();
         }
 
+        // ── Station 碰撞（與 PlayerController 相同的分軸解算）──
+        const blocked = GridSystem.getBlockedCells();
+        nx = this._resolveBoarX(blocked, nx, ny);
+        ny = this._resolveBoarY(blocked, nx, ny);
+
         this.node.x = nx;
         this.node.y = ny;
 
         this._pushPlayers();
         this._updateSprite();
+    },
+
+    // ── Station 碰撞解算（分軸，碰到後彈回）───────────────
+
+    _resolveBoarX(blocked, nx, ny) {
+        for (const { col, row } of blocked) {
+            const b = GridSystem.getCellBounds(col, row);
+            // Y 方向無重疊 → 跳過
+            if (ny - BOAR_HALF_H >= b.top)    continue;
+            if (ny + BOAR_HALF_H <= b.bottom) continue;
+            // X 方向無重疊 → 跳過
+            if (nx + BOAR_HALF_W <= b.left)   continue;
+            if (nx - BOAR_HALF_W >= b.right)  continue;
+            // 碰撞：從哪邊進來就推出去，並反轉 X 速度（彈開）
+            if (this.node.x <= b.cx) {
+                nx = b.left  - BOAR_HALF_W;
+                this._vx = -Math.abs(this._vx);
+            } else {
+                nx = b.right + BOAR_HALF_W;
+                this._vx =  Math.abs(this._vx);
+            }
+            this._syncDirName();
+        }
+        return nx;
+    },
+
+    _resolveBoarY(blocked, nx, ny) {
+        for (const { col, row } of blocked) {
+            const b = GridSystem.getCellBounds(col, row);
+            // X 方向無重疊 → 跳過
+            if (nx - BOAR_HALF_W >= b.right)  continue;
+            if (nx + BOAR_HALF_W <= b.left)   continue;
+            // Y 方向無重疊 → 跳過
+            if (ny + BOAR_HALF_H <= b.bottom) continue;
+            if (ny - BOAR_HALF_H >= b.top)    continue;
+            // 碰撞：反轉 Y 速度（彈開）
+            if (this.node.y <= b.cy) {
+                ny = b.bottom - BOAR_HALF_H;
+                this._vy = -Math.abs(this._vy);
+            } else {
+                ny = b.top    + BOAR_HALF_H;
+                this._vy =  Math.abs(this._vy);
+            }
+            this._syncDirName();
+        }
+        return ny;
     },
 
     _pushPlayers() {
