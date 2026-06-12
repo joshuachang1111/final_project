@@ -111,19 +111,16 @@
         "__id__": 7
       },
       {
-        "__id__": 198
-      },
-      {
         "__id__": 43
       }
     ],
     "_active": true,
     "_components": [
       {
-        "__id__": 201
+        "__id__": 198
       },
       {
-        "__id__": 202
+        "__id__": 199
       }
     ],
     "_prefab": null,
@@ -4302,7 +4299,7 @@
     "foodSpriteFrame": {
       "__uuid__": "78987d7f-21ba-4452-9753-22d1cf808301"
     },
-    "foodScale": 0.5,
+    "foodScale": 1,
     "_id": "07IVVxznxBDq9i7WHLhKmf"
   },
   {
@@ -4420,7 +4417,7 @@
     "foodSpriteFrame": {
       "__uuid__": "2db2659b-3c86-4c1c-9417-3a5dabe28074"
     },
-    "foodScale": 0.5,
+    "foodScale": 1,
     "_id": "88sG5Adn1LzalfZ5oE/5xw"
   },
   {
@@ -4538,7 +4535,7 @@
     "foodSpriteFrame": {
       "__uuid__": "24a0e3c7-9e29-4185-8732-c3d36b2a27ad"
     },
-    "foodScale": 0.5,
+    "foodScale": 1,
     "_id": "70rldM9J9DwKmDaEs//nYm"
   },
   {
@@ -4656,7 +4653,7 @@
     "foodSpriteFrame": {
       "__uuid__": "139c0b97-0f65-4ddb-8287-6c9766d4e6ba"
     },
-    "foodScale": 0.5,
+    "foodScale": 1,
     "_id": "e8qiZmcKFJYb9lTT2Q8nG7"
   },
   {
@@ -4774,7 +4771,7 @@
     "foodSpriteFrame": {
       "__uuid__": "7ce48fd1-2a77-458d-be4c-bacff26a6db8"
     },
-    "foodScale": 0.5,
+    "foodScale": 1,
     "_id": "10glnPmr5JObWujbHFb6ao"
   },
   {
@@ -4892,7 +4889,7 @@
     "foodSpriteFrame": {
       "__uuid__": "746bdf3b-31e9-45a5-8b1e-f16965c3b70d"
     },
-    "foodScale": 0.5,
+    "foodScale": 1,
     "_id": "b7PTgMT4NO649CSnFIwxLs"
   },
   {
@@ -5010,7 +5007,7 @@
     "foodSpriteFrame": {
       "__uuid__": "d2ca8cc7-1ebe-4b86-ae70-a76524214e5d"
     },
-    "foodScale": 0.5,
+    "foodScale": 1,
     "_id": "ebFn3XjP5NHZz5tr5GfaZB"
   },
   {
@@ -8506,124 +8503,6 @@
       "__uuid__": "cbba0376-dd9e-4a8f-b66b-553577ff1b87"
     },
     "_id": "a9PNHAby5E+rpCnGhuOExR"
-  },
-  {
-    "__type__": "cc.Node",
-    "_name": "Buffer",
-    "_objFlags": 0,
-    "_parent": {
-      "__id__": 2
-    },
-    "_children": [],
-    "_active": true,
-    "_components": [
-      {
-        "__id__": 199
-      },
-      {
-        "__id__": 200
-      }
-    ],
-    "_prefab": null,
-    "_opacity": 255,
-    "_color": {
-      "__type__": "cc.Color",
-      "r": 255,
-      "g": 255,
-      "b": 255,
-      "a": 255
-    },
-    "_contentSize": {
-      "__type__": "cc.Size",
-      "width": 300,
-      "height": 200
-    },
-    "_anchorPoint": {
-      "__type__": "cc.Vec2",
-      "x": 0.5,
-      "y": 0.5
-    },
-    "_trs": {
-      "__type__": "TypedArray",
-      "ctor": "Float64Array",
-      "array": [
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        1,
-        1,
-        1,
-        1
-      ]
-    },
-    "_eulerAngles": {
-      "__type__": "cc.Vec3",
-      "x": 0,
-      "y": 0,
-      "z": 0
-    },
-    "_skewX": 0,
-    "_skewY": 0,
-    "_is3DNode": false,
-    "_groupIndex": 0,
-    "groupIndex": 0,
-    "_id": "3ey8SIXadE/oWXyR6qCoG9"
-  },
-  {
-    "__type__": "dae17ruTHVGkJd7K6FzG9vn",
-    "_name": "",
-    "_objFlags": 0,
-    "node": {
-      "__id__": 198
-    },
-    "_enabled": true,
-    "foodSprites": [
-      {
-        "__uuid__": "884f716c-3121-4004-b6dc-93507f75d25c"
-      },
-      {
-        "__uuid__": "2852a228-625f-42e5-8169-cb444d858f67"
-      },
-      {
-        "__uuid__": "d2ca8cc7-1ebe-4b86-ae70-a76524214e5d"
-      }
-    ],
-    "_id": "2amR9Ff4tJvZcayQ4uxVES"
-  },
-  {
-    "__type__": "cc.Layout",
-    "_name": "",
-    "_objFlags": 0,
-    "node": {
-      "__id__": 198
-    },
-    "_enabled": true,
-    "_layoutSize": {
-      "__type__": "cc.Size",
-      "width": 300,
-      "height": 200
-    },
-    "_resize": 0,
-    "_N$layoutType": 1,
-    "_N$cellSize": {
-      "__type__": "cc.Size",
-      "width": 40,
-      "height": 40
-    },
-    "_N$startAxis": 0,
-    "_N$paddingLeft": 0,
-    "_N$paddingRight": 0,
-    "_N$paddingTop": 0,
-    "_N$paddingBottom": 0,
-    "_N$spacingX": 0,
-    "_N$spacingY": 0,
-    "_N$verticalDirection": 1,
-    "_N$horizontalDirection": 0,
-    "_N$affectedByScale": false,
-    "_id": "a3IF5+YMJGG5OcaQ8ovSOh"
   },
   {
     "__type__": "cc.Canvas",
