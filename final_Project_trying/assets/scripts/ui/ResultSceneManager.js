@@ -152,21 +152,30 @@ const ResultSceneManager = cc.Class({
         // 顯示分數
         if (this.scoreLabel) {
             const bbr = window._burgerBattleResult;
+            // 背景獎狀文字密集，scoreLabel 改放獎狀外上方黑邊 (y=330)，
+            // 並把字色從黑換成白（原本黑字在黑邊上看不見）。
+            this.scoreLabel.node.color = cc.color(255, 255, 255, 255);
+            this.scoreLabel.node.y = 330;
+            this.scoreLabel.node.zIndex = 100;
+
             if (bbr) {
-                // ── 漢堡對抗模式：顯示勝負 + 雙方分數 ──
+                // ── 漢堡對抗模式 ──
+                // 標題（勝負）放獎狀上方；P1/P2 兩個分數拆成獨立 label
+                // 分別放在獎狀左右兩側黑邊。
                 let header;
                 if      (bbr.winner === 'P1')   header = '🏆 P1 獲勝！';
                 else if (bbr.winner === 'P2')   header = '🏆 P2 獲勝！';
                 else                             header = '⚖ 平局！';
-                this.scoreLabel.string = `${header}\nP1：${bbr.p1Score} 分\nP2：${bbr.p2Score} 分`;
+                this.scoreLabel.string = header;
                 this.scoreLabel.lineHeight = 60;
+
+                this._buildBBSideScores(bbr);
             } else {
                 // ── 一般遊戲模式 ──
                 this.scoreLabel.string = (data && data.score !== undefined)
                     ? data.score + ' 分'
                     : '-- 分';
             }
-            this.scoreLabel.node.y = 150;
         }
 
         // Host 才上傳分數到排行榜（burger_battle 模式不上傳）
@@ -183,6 +192,37 @@ const ResultSceneManager = cc.Class({
         } else {
             cc.log('[ResultSceneManager] ✗ 不上傳（burger_battle 或條件不滿足）');
         }
+    },
+
+    // BB 模式：把 P1 / P2 分數分別放在獎狀左右黑邊（獎狀本體 960×640 居中於 1440×720 canvas，
+    // 左右各有約 240px 寬黑邊空白）。獲勝那邊用黃色強調。
+    _buildBBSideScores(bbr) {
+        const canvas = this.scoreLabel.node.parent;
+        if (!canvas) return;
+
+        // 清掉上一輪的（重玩進 result 時 _onGameEnd 會再次跑）
+        if (this._bbP1Node && cc.isValid(this._bbP1Node)) this._bbP1Node.destroy();
+        if (this._bbP2Node && cc.isValid(this._bbP2Node)) this._bbP2Node.destroy();
+
+        const winColor  = cc.color(255, 220, 60, 255);   // 黃
+        const normColor = cc.color(255, 255, 255, 255);  // 白
+
+        const mk = (text, x, color) => {
+            const node = new cc.Node('BBSideScore');
+            const lbl  = node.addComponent(cc.Label);
+            lbl.string           = text;
+            lbl.fontSize         = 44;
+            lbl.lineHeight       = 56;
+            lbl.horizontalAlign  = cc.Label.HorizontalAlign.CENTER;
+            node.color           = color;
+            node.setPosition(x, 0);
+            node.zIndex          = 100;
+            canvas.addChild(node);
+            return node;
+        };
+
+        this._bbP1Node = mk(`P1\n${bbr.p1Score} 分`, -590, bbr.winner === 'P1' ? winColor : normColor);
+        this._bbP2Node = mk(`P2\n${bbr.p2Score} 分`,  590, bbr.winner === 'P2' ? winColor : normColor);
     },
 
     _submitScore(score) {
