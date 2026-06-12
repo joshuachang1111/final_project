@@ -245,7 +245,7 @@ cc.Class({
     },
 
     _loadSpriteFromRegistry(spriteComp, node, itemName) {
-        const uuid = ItemSprites.ITEM_SPRITE_UUIDS && ItemSprites.ITEM_SPRITE_UUIDS[itemName];
+        const uuid = ItemSprites.LEVEL2_UUIDS && ItemSprites.LEVEL2_UUIDS[itemName];
         if (!uuid || !cc.assetManager || !cc.assetManager.loadAny) {
             cc.warn('[OrderContainer] 找不到第二關訂單圖片:', itemName);
             return;
