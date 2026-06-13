@@ -291,10 +291,12 @@ const ResultSceneManager = cc.Class({
             window._nm.sendResultChoice('replay');
         }
 
+        // 重設遊戲狀態但保持 Photon 連線，回到 room 場景等 Host 再次開始
         if (window._nm) window._nm._gameStarted = false;
-        EventBus.clear();
+        window._burgerBattleResult = null;
+        window._gameScore = undefined;
         this.scheduleOnce(() => {
-            cc.director.loadScene('levelselect');
+            cc.director.loadScene('room');
         }, 0.2);
     },
 
@@ -330,8 +332,9 @@ const ResultSceneManager = cc.Class({
         cc.log('[ResultSceneManager] Guest 收到 host 選擇:', msg.choice);
         if (msg.choice === 'replay') {
             if (window._nm) window._nm._gameStarted = false;
-            EventBus.clear();
-            cc.director.loadScene('levelselect');
+            window._burgerBattleResult = null;
+            window._gameScore = undefined;
+            cc.director.loadScene('room');
         } else {
             // menu
             if (window._nm && typeof window._nm.leaveRoom === 'function') {

@@ -19,6 +19,7 @@ const EV_BB_PICKUP  = 31;   // 任一方: 撿走帶子食材 {col, idx, playerId
 const EV_BB_SCORE   = 32;   // 任一方: 分數更新 {playerId, score}
 const EV_BB_END     = 33;   // Host → Guest: 遊戲結束 {p1Score, p2Score, winner}
 const EV_BB_SERVE   = 34;   // 任一方: 出餐成功 {playerId} → 對方 drop remote player 持有食材
+const EV_PAUSE      = 35;   // Host → Guest: 暫停/繼續 { paused: bool }
 
 cc.Class({
     extends: cc.Component,
@@ -57,6 +58,7 @@ cc.Class({
         EventBus.on('bb:local_score',  (d) => this._handleBBScore(d),   this);
         EventBus.on('bb:local_seed',   (d) => this._handleBBSeed(d),    this);
         EventBus.on('bb:local_serve',  (d) => this._handleBBServe(d),   this);
+        EventBus.on('game:local_pause', (d) => this._handleLocalPause(d), this);
 
         if (window._nm) {
             window._nm.on('game_event', this._onGameEvent);
@@ -152,6 +154,7 @@ cc.Class({
         EventBus.off('bb:local_score',      null,                 this);
         EventBus.off('bb:local_seed',       null,                 this);
         EventBus.off('bb:local_serve',      null,                 this);
+        EventBus.off('game:local_pause',    null,                 this);
 
         if (window._nm) {
             window._nm.off('game_event', this._onGameEvent);
@@ -282,6 +285,7 @@ cc.Class({
         else if (code === EV_BB_PICKUP) this._applyBBPickup(data);
         else if (code === EV_BB_SCORE)  this._applyBBScore(data);
         else if (code === EV_BB_SERVE)  this._applyBBServe(data);
+        else if (code === EV_PAUSE)     this._applyRemotePause(data);
         else if (code === EV_BB_END)    this._applyBBEnd(data);
     },
 
@@ -681,6 +685,22 @@ cc.Class({
         const item = remote.dropItem();
         if (item && cc.isValid(item)) item.destroy();
         cc.log('[BB Bridge] 遠端 P' + data.playerId + ' 出餐，本地 drop remote player 食材');
+    },
+
+    // ── 暫停同步 ──────────────────────────────────────────────
+
+    /** Host 按 P 暫停 → 廣播給 Guest */
+    _handleLocalPause(data) {
+        if (window._nmRole !== 'host') return;
+        if (!window._nm) return;
+        window._nm.sendGameEvent(EV_PAUSE, { paused: data.paused });
+        cc.log('[GNB] 廣播暫停 paused=', data.paused);
+    },
+
+    /** Guest 收到暫停事件 → 通知 PauseManager */
+    _applyRemotePause(data) {
+        cc.log('[GNB] 收到遠端暫停 paused=', data.paused);
+        EventBus.emit('game:remote_pause', { paused: data.paused });
     },
 
     /** Host 廣播遊戲結束 → Guest 跳到結算 */
