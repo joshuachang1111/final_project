@@ -14,7 +14,7 @@ const StationBase  = require('./StationBase');
 const EventBus     = require('../core/EventBus');
 
 // station_serving_counter sprite UUID（img/level1/工作臺/station_serving_counter.png subMeta）
-const SERVING_SPRITE_UUID = '85cb1bb9-75a6-4ba1-9684-014d33706372';
+// station_serving_counter.png 已移至 resources/，改用路徑載入
 
 const BurgerServingCounter = cc.Class({
     extends: cc.Component,
@@ -92,16 +92,12 @@ const BurgerServingCounter = cc.Class({
         const sp = this.node.addComponent(cc.Sprite);
         sp.sizeMode = cc.Sprite.SizeMode.CUSTOM;
 
-        cc.assetManager.loadAny({ uuid: SERVING_SPRITE_UUID }, (err, asset) => {
-            if (err || !cc.isValid(this.node)) {
+        cc.resources.load('station_serving_counter', cc.SpriteFrame, (err, spriteFrame) => {
+            if (err || !spriteFrame || !cc.isValid(this.node)) {
                 this._drawFallback();
                 return;
             }
-            if (asset instanceof cc.SpriteFrame) {
-                sp.spriteFrame = asset;
-            } else {
-                this._drawFallback();
-            }
+            sp.spriteFrame = spriteFrame;
         });
     },
 

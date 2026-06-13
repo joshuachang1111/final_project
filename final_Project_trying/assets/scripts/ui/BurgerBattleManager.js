@@ -15,7 +15,7 @@ const EventBus             = require('../core/EventBus');
 const GameNetworkBridge    = require('../core/GameNetworkBridge');
 
 // 遊戲原版 table（工作臺）sprite UUID
-const TABLE_SPRITE_UUID = 'ee0596e6-9850-46c0-b431-fdd8b21f63b2';
+// table.png 已移至 resources/，改用路徑載入
 
 const SCORE_PER_BURGER = 150;
 
@@ -315,12 +315,12 @@ const BurgerBattleManager = cc.Class({
         st.itemOffsetY     = 12;
         canvas.addChild(node);  // 觸發 onLoad → 定位 + 阻擋格子
 
-        // 載入遊戲原版 TABLE sprite（cc.assetManager.loadAny 可靠載入 sub-asset UUID）
+        // 載入 TABLE sprite（table.png 已移至 resources/，用路徑載入）
         const sp   = node.addComponent(cc.Sprite);
         sp.sizeMode = cc.Sprite.SizeMode.CUSTOM;
-        cc.assetManager.loadAny({ uuid: TABLE_SPRITE_UUID }, (err, asset) => {
+        cc.resources.load('table', cc.SpriteFrame, (err, spriteFrame) => {
             if (err || !cc.isValid(node)) return;
-            if (asset instanceof cc.SpriteFrame) sp.spriteFrame = asset;
+            sp.spriteFrame = spriteFrame;
         });
     },
 
