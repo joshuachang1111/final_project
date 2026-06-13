@@ -173,12 +173,12 @@ cc.Class({
             window._nm.sendResultChoice('replay');
         }
 
-        // 保持 Photon 連線，回 room 場景
+        // 保持 Photon 連線，直接進關卡選擇
         if (window._nm) window._nm._gameStarted = false;
         window._burgerBattleResult = null;
         window._gameScore = undefined;
         this.scheduleOnce(() => {
-            cc.director.loadScene('room');
+            cc.director.loadScene('levelselect');
         }, 0.3);
     },
 

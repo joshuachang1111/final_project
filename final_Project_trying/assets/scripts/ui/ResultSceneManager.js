@@ -291,12 +291,13 @@ const ResultSceneManager = cc.Class({
             window._nm.sendResultChoice('replay');
         }
 
-        // 重設遊戲狀態但保持 Photon 連線，回到 room 場景等 Host 再次開始
+        // 重設遊戲狀態但保持 Photon 連線，直接進關卡選擇
+        // Guest 在 levelselect 會自動監聽 Host 選關卡後跟著進遊戲
         if (window._nm) window._nm._gameStarted = false;
         window._burgerBattleResult = null;
         window._gameScore = undefined;
         this.scheduleOnce(() => {
-            cc.director.loadScene('room');
+            cc.director.loadScene('levelselect');
         }, 0.2);
     },
 
@@ -334,7 +335,7 @@ const ResultSceneManager = cc.Class({
             if (window._nm) window._nm._gameStarted = false;
             window._burgerBattleResult = null;
             window._gameScore = undefined;
-            cc.director.loadScene('room');
+            cc.director.loadScene('levelselect');
         } else {
             // menu
             if (window._nm && typeof window._nm.leaveRoom === 'function') {
