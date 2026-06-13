@@ -250,19 +250,19 @@ cc.Class({
     },
 
     _loadSpriteFromRegistry(spriteComp, node, itemName) {
-        const uuid = ItemSprites.LEVEL2_UUIDS && ItemSprites.LEVEL2_UUIDS[itemName];
-        if (!uuid || !cc.assetManager || !cc.assetManager.loadAny) {
-            cc.warn('[OrderContainer] 找不到第二關訂單圖片:', itemName);
-            return;
-        }
-
-        cc.assetManager.loadAny({ uuid }, (err, asset) => {
-            if (err || !asset || !cc.isValid(node) || !cc.isValid(spriteComp.node)) {
-                if (err) cc.warn('[OrderContainer] 第二關訂單圖片載入失敗:', itemName, err);
+        // Level2 圖片已移至 resources/level2/，用路徑載入
+        cc.resources.load('level2/' + itemName, cc.SpriteFrame, (err, spriteFrame) => {
+            if (err || !spriteFrame || !cc.isValid(node) || !cc.isValid(spriteComp.node)) {
+                cc.resources.load('level2/' + itemName, cc.Texture2D, (err2, tex) => {
+                    if (err2 || !tex || !cc.isValid(node)) {
+                        if (err2) cc.warn('[OrderContainer] 第二關訂單圖片載入失敗:', itemName, err2);
+                        return;
+                    }
+                    if (cc.isValid(spriteComp.node)) spriteComp.spriteFrame = new cc.SpriteFrame(tex);
+                });
                 return;
             }
-
-            spriteComp.spriteFrame = asset;
+            spriteComp.spriteFrame = spriteFrame;
         });
     },
 
